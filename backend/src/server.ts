@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import { getEnv } from './config/env.js';
@@ -21,7 +22,9 @@ import { handleToolCall } from './mcp/handlers.js';
 const app = express();
 const env = getEnv();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Allow SSE connections
+}));
 
 // Support multiple CORS origins (comma-separated in env)
 const allowedOrigins = env.CORS_ORIGIN.split(',').map(s => s.trim());
@@ -42,77 +45,145 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.post('/mcp', express.json(), async (req: Request, res: Response) => {
-  try {
-    const { jsonrpc, id, method, params } = req.body;
+// ===== MCP SSE TRANSPORT =====
+// Implements the MCP SSE transport spec:
+// - GET /sse → SSE stream, sends `endpoint` event with POST URL
+// - POST /mcp/message?sessionId=xxx → receives JSON-RPC, responds via SSE
 
-    if (jsonrpc !== '2.0') {
-      return res.status(400).json({
-        jsonrpc: '2.0',
-        id: id || null,
-        error: {
-          code: -32600,
-          message: 'Invalid Request',
+// Store active SSE sessions
+const sseSessions = new Map<string, Response>();
+
+// SSE endpoint — client connects here first
+app.get('/sse', (req: Request, res: Response) => {
+  const sessionId = crypto.randomUUID();
+
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Disable nginx buffering
+  });
+
+  // Store the SSE connection
+  sseSessions.set(sessionId, res);
+
+  // Send the endpoint event — tells the client where to POST messages
+  const messageUrl = `/mcp/message?sessionId=${sessionId}`;
+  res.write(`event: endpoint\ndata: ${messageUrl}\n\n`);
+
+  // Keep-alive ping every 30s
+  const keepAlive = setInterval(() => {
+    res.write(': ping\n\n');
+  }, 30000);
+
+  // Cleanup on disconnect
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    sseSessions.delete(sessionId);
+    console.log(`MCP SSE session ${sessionId} disconnected`);
+  });
+
+  console.log(`MCP SSE session ${sessionId} connected`);
+});
+
+// Handle JSON-RPC messages from MCP clients
+async function handleMcpMessage(body: any): Promise<any> {
+  const { jsonrpc, id, method, params } = body;
+
+  if (jsonrpc !== '2.0') {
+    return {
+      jsonrpc: '2.0',
+      id: id || null,
+      error: { code: -32600, message: 'Invalid Request' },
+    };
+  }
+
+  // Initialize handshake
+  if (method === 'initialize') {
+    return {
+      jsonrpc: '2.0',
+      id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {
+          tools: {},
         },
-      });
-    }
+        serverInfo: {
+          name: 'vale',
+          version: '0.1.0',
+        },
+      },
+    };
+  }
 
-    if (method === 'tools/list') {
-      return res.json({
+  // Notifications (no response needed)
+  if (method === 'notifications/initialized' || method === 'notifications/cancelled') {
+    return null; // No response for notifications
+  }
+
+  if (method === 'tools/list') {
+    return {
+      jsonrpc: '2.0',
+      id,
+      result: { tools: mcpTools },
+    };
+  }
+
+  if (method === 'tools/call') {
+    const { name, arguments: toolArgs } = params;
+    try {
+      const result = await handleToolCall(name, toolArgs || {});
+      return {
         jsonrpc: '2.0',
         id,
         result: {
-          tools: mcpTools,
+          content: [{ type: 'text', text: JSON.stringify(result) }],
         },
-      });
+      };
+    } catch (error) {
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32603, message: String(error) },
+      };
     }
+  }
 
-    if (method === 'tools/call') {
-      const { name, arguments: toolArgs } = params;
+  return {
+    jsonrpc: '2.0',
+    id: id || null,
+    error: { code: -32601, message: `Method not found: ${method}` },
+  };
+}
 
-      try {
-        const result = await handleToolCall(name, toolArgs);
-        return res.json({
-          jsonrpc: '2.0',
-          id,
-          result: {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(result),
-              },
-            ],
-          },
-        });
-      } catch (error) {
-        return res.json({
-          jsonrpc: '2.0',
-          id,
-          error: {
-            code: -32603,
-            message: String(error),
-          },
-        });
-      }
-    }
+// POST endpoint for MCP messages (SSE transport)
+app.post('/mcp/message', async (req: Request, res: Response) => {
+  const sessionId = req.query.sessionId as string;
+  const sseRes = sessionId ? sseSessions.get(sessionId) : null;
 
-    res.status(400).json({
-      jsonrpc: '2.0',
-      id: id || null,
-      error: {
-        code: -32601,
-        message: 'Method not found',
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      jsonrpc: '2.0',
-      id: null,
-      error: {
-        code: -32603,
-        message: 'Internal error',
-      },
-    });
+  const response = await handleMcpMessage(req.body);
+
+  if (sseRes && response) {
+    // Send response through SSE stream
+    sseRes.write(`event: message\ndata: ${JSON.stringify(response)}\n\n`);
+    res.status(202).json({ ok: true });
+  } else if (response) {
+    // Fallback: direct HTTP response (for non-SSE clients)
+    res.json(response);
+  } else {
+    // Notification — no response needed
+    res.status(202).json({ ok: true });
+  }
+});
+
+// Legacy direct POST endpoint (still works for simple HTTP clients)
+app.post('/mcp', async (req: Request, res: Response) => {
+  const response = await handleMcpMessage(req.body);
+  if (response) {
+    res.json(response);
+  } else {
+    res.status(202).json({ ok: true });
   }
 });
 
