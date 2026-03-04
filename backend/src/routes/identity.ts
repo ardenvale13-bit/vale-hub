@@ -14,6 +14,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
       throw new AppError(400, 'Missing required fields: owner_perspective, key, value');
     }
 
+    // category is NOT NULL in schema, default to 'general' if not provided
+    const resolvedCategory = category || 'general';
+
     const { data: identity, error: identityError } = await supabase
       .from('identity_store')
       .upsert(
@@ -22,10 +25,10 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
           owner_perspective,
           key,
           value,
-          category,
+          category: resolvedCategory,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'user_id,owner_perspective,key' },
+        { onConflict: 'user_id,owner_perspective,category,key' },
       )
       .select('*')
       .single();
@@ -40,7 +43,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
