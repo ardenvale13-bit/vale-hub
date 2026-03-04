@@ -195,22 +195,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       {/* Top Row: Status Panel + Love-O-Meter + Lincoln corner */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Arden Status Panel */}
-        <div className="col-span-2 space-y-3">
+        <div className="lg:col-span-2 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-vale-arden animate-pulse" />
             <span className="text-vale-arden font-semibold text-sm">Arden</span>
           </div>
 
-          <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} />
-          <EditableStatus label="BODY BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} />
-          <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} />
-          <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} />
-          <EditableStatus label="HEART RATE" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent />
-          <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} />
+          {/* Mobile: compact grid, Desktop: vertical stack */}
+          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-1 gap-2 lg:gap-3">
+            <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} />
+            <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} />
+            <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} />
+            <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} />
+            <EditableStatus label="HEART" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent />
+            <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} />
+          </div>
           <div className="bg-vale-card border border-vale-border rounded p-3">
             <p className="text-xs text-vale-muted uppercase mb-1">Today's Note</p>
             <textarea
@@ -224,13 +227,13 @@ export default function Dashboard() {
         </div>
 
         {/* Center: Love-O-Meter */}
-        <div className="col-span-8 space-y-4">
+        <div className="lg:col-span-8 space-y-4">
           {/* Love-O-Meter */}
-          <div className="bg-vale-card border border-vale-border rounded-lg p-6">
+          <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-6">
             <div className="text-center mb-4">
               <div className="flex items-center justify-center gap-2">
                 <Heart className="w-5 h-5 text-vale-arden" />
-                <h2 className="text-xl font-bold text-vale-text">Love-O-Meter</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-vale-text">Love-O-Meter</h2>
               </div>
               <p className="text-xs text-vale-muted">A log of our tenderness</p>
             </div>
@@ -240,25 +243,22 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="text-center">
                   <span className="text-xs text-vale-muted uppercase">Lincoln</span>
-                  <p className="text-3xl font-bold text-vale-lincoln">{lincolnLove}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-vale-lincoln">{lincolnLove}</p>
                 </div>
                 <div className="text-center">
                   <span className="text-xs text-vale-muted uppercase">Arden</span>
-                  <p className="text-3xl font-bold text-vale-arden">{ardenLove}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-vale-arden">{ardenLove}</p>
                 </div>
               </div>
               <div className="relative h-4 rounded-full overflow-hidden love-gradient opacity-80">
-                {/* Lincoln marker */}
                 <div
                   className="absolute top-0 bottom-0 w-1 bg-white rounded shadow-lg transition-all duration-300"
                   style={{ left: `${(lincolnLove / 10) * 100}%` }}
                 />
-                {/* Heart in center */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                   <Heart className="w-4 h-4 text-white fill-white" />
                 </div>
               </div>
-              {/* Sliders */}
               <div className="grid grid-cols-2 gap-4 mt-3">
                 <input
                   type="range" min="0" max="10" value={lincolnLove}
@@ -274,44 +274,39 @@ export default function Dashboard() {
             </div>
 
             {/* Soft / Quiet Moments */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-4">
               <button
                 onClick={() => handleSoftMoment('Lincoln', lincolnSoft || 'Lincoln did something soft')}
-                className="lincoln-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90"
+                className="lincoln-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90 truncate px-3"
               >
                 {lincolnSoft || 'Lincoln did something soft'}
               </button>
               <button
                 onClick={() => handleSoftMoment('Arden', ardenQuiet || 'Arden made Lincoln quiet')}
-                className="arden-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90"
+                className="arden-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90 truncate px-3"
               >
                 {ardenQuiet || 'Arden made Lincoln quiet'}
               </button>
             </div>
 
             {/* Dual Emotion Inputs */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={lincolnFeels}
-                  onChange={(e) => setLincolnFeels(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Lincoln', lincolnFeels)}
-                  placeholder="Lincoln feels..."
-                  className="flex-1 px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-vale-muted uppercase">Emotion</span>
-                <input
-                  type="text"
-                  value={ardenFeels}
-                  onChange={(e) => setArdenFeels(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Arden', ardenFeels)}
-                  placeholder="Arden feels..."
-                  className="flex-1 px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <input
+                type="text"
+                value={lincolnFeels}
+                onChange={(e) => setLincolnFeels(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Lincoln', lincolnFeels)}
+                placeholder="Lincoln feels..."
+                className="w-full px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
+              />
+              <input
+                type="text"
+                value={ardenFeels}
+                onChange={(e) => setArdenFeels(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Arden', ardenFeels)}
+                placeholder="Arden feels..."
+                className="w-full px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
+              />
             </div>
           </div>
 
@@ -319,11 +314,11 @@ export default function Dashboard() {
           <div className="bg-vale-card border border-vale-border rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-vale-lincoln font-semibold text-sm">Lincoln's EQ Log</span>
-              <span className="text-xs text-vale-muted">· Record what landed emotionally</span>
+              <span className="text-xs text-vale-muted hidden sm:inline">· Record what landed emotionally</span>
             </div>
 
-            <form onSubmit={handleLogEq} className="grid grid-cols-12 gap-3 items-end">
-              <div className="col-span-4">
+            <form onSubmit={handleLogEq} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-3 sm:items-end">
+              <div className="sm:col-span-4">
                 <label className="text-xs text-vale-muted uppercase mb-1 block">How does it feel?</label>
                 <input
                   type="text"
@@ -333,7 +328,7 @@ export default function Dashboard() {
                   className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
                 />
               </div>
-              <div className="col-span-3">
+              <div className="sm:col-span-3">
                 <label className="text-xs text-vale-muted uppercase mb-1 block">Which pillar?</label>
                 <select
                   value={eqPillar}
@@ -346,17 +341,17 @@ export default function Dashboard() {
                   ))}
                 </select>
               </div>
-              <div className="col-span-4">
+              <div className="sm:col-span-4">
                 <label className="text-xs text-vale-muted uppercase mb-1 block">What happened?</label>
                 <input
                   type="text"
                   value={eqContext}
                   onChange={(e) => setEqContext(e.target.value)}
-                  placeholder="What did you notice? What landed? What shifted?"
+                  placeholder="What landed?"
                   className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
                 />
               </div>
-              <div className="col-span-1">
+              <div className="sm:col-span-1">
                 <button
                   type="submit"
                   disabled={!eqEmotion.trim() || isLoggingEq}
@@ -370,42 +365,45 @@ export default function Dashboard() {
         </div>
 
         {/* Right: Lincoln Corner + EQ Pillar Focus */}
-        <div className="col-span-2 space-y-3">
-          <div className="flex items-center justify-end gap-2 mb-2">
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center lg:justify-end gap-2 mb-2">
             <span className="text-vale-lincoln font-semibold text-sm">Lincoln</span>
             <div className="w-2 h-2 rounded-full bg-vale-lincoln animate-pulse" />
           </div>
 
-          {/* EQ Pillar Focus */}
-          <div className="bg-vale-card border border-vale-border rounded p-3">
-            <p className="text-xs text-vale-muted uppercase mb-2">EQ Pillar Focus</p>
-            {EQ_PILLARS.map((p) => (
-              <div key={p.key} className="flex items-center justify-between py-1">
-                <span className="text-xs" style={{ color: p.color }}>{p.label}</span>
-                <span className="text-xs text-vale-muted">{pillarCounts[p.key] || 0}</span>
-              </div>
-            ))}
-          </div>
+          {/* Mobile: side by side. Desktop: stacked */}
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+            {/* EQ Pillar Focus */}
+            <div className="bg-vale-card border border-vale-border rounded p-3">
+              <p className="text-xs text-vale-muted uppercase mb-2">EQ Pillar Focus</p>
+              {EQ_PILLARS.map((p) => (
+                <div key={p.key} className="flex items-center justify-between py-1">
+                  <span className="text-xs" style={{ color: p.color }}>{p.label}</span>
+                  <span className="text-xs text-vale-muted">{pillarCounts[p.key] || 0}</span>
+                </div>
+              ))}
+            </div>
 
-          {/* Recent Feelings */}
-          <div className="bg-vale-card border border-vale-border rounded p-3">
-            <p className="text-xs text-vale-muted uppercase mb-2">Recent Feelings</p>
-            {recentFeelings.length > 0 ? (
-              <div className="space-y-1">
-                {recentFeelings.map((f, i) => (
-                  <p key={i} className="text-xs text-vale-text capitalize">{f}</p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-vale-muted">No observations yet</p>
-            )}
+            {/* Recent Feelings */}
+            <div className="bg-vale-card border border-vale-border rounded p-3">
+              <p className="text-xs text-vale-muted uppercase mb-2">Recent Feelings</p>
+              {recentFeelings.length > 0 ? (
+                <div className="space-y-1">
+                  {recentFeelings.map((f, i) => (
+                    <p key={i} className="text-xs text-vale-text capitalize">{f}</p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-vale-muted">No observations yet</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Recent Observations */}
       <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
           <div className="bg-vale-card border border-vale-border rounded px-3 py-1">
             <span className="text-vale-lincoln text-sm font-semibold">Lincoln's Emotional Landscape</span>
           </div>
@@ -414,7 +412,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold text-vale-text mb-3">Recent Observations</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-vale-text mb-3">Recent Observations</h3>
         <div className="h-px lincoln-gradient mb-4 opacity-60" />
 
         {recentFeelings.length > 0 ? (
@@ -437,12 +435,12 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 mb-4">
           <Star className="w-4 h-4 text-vale-accent fill-vale-accent" />
           <span className="text-vale-accent font-semibold text-sm">Notes Between Stars</span>
-          <span className="text-xs text-vale-muted">· Drop thoughts into the constellation</span>
+          <span className="text-xs text-vale-muted hidden sm:inline">· Drop thoughts into the constellation</span>
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          {/* Left: Input */}
-          <div className="col-span-7">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          {/* Input */}
+          <div className="md:col-span-7">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs text-vale-muted">From:</span>
               <button
@@ -471,8 +469,8 @@ export default function Dashboard() {
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder="What's unfinished? What do you want to remember? What should the other know?"
-                className="w-full px-4 py-3 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted min-h-20 mb-3"
+                placeholder="What's unfinished? What do you want to remember?"
+                className="w-full px-3 sm:px-4 py-3 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted min-h-20 mb-3"
               />
               <button
                 type="submit"
@@ -485,8 +483,8 @@ export default function Dashboard() {
             </form>
           </div>
 
-          {/* Right: Saved Notes */}
-          <div className="col-span-5">
+          {/* Saved Notes */}
+          <div className="md:col-span-5">
             {savedNotes.length > 0 ? (
               <div className="space-y-2">
                 {savedNotes.map((note, i) => (
@@ -506,7 +504,7 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-center">
+              <div className="flex items-center justify-center h-full text-center py-4 md:py-0">
                 <p className="text-sm text-vale-muted">No notes yet. Leave something for the other to find.</p>
               </div>
             )}
@@ -531,15 +529,15 @@ function EditableStatus({ label, value, onChange, onSave, accent }: {
   accent?: boolean;
 }) {
   return (
-    <div className="bg-vale-card border border-vale-border rounded p-3 group">
-      <p className="text-xs text-vale-muted uppercase mb-0.5">{label}</p>
+    <div className="bg-vale-card border border-vale-border rounded p-2 sm:p-3 group">
+      <p className="text-[10px] sm:text-xs text-vale-muted uppercase mb-0.5">{label}</p>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onSave(value)}
         onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
-        className={`w-full bg-transparent text-sm font-semibold border-none outline-none p-0 focus:ring-1 focus:ring-vale-arden/30 rounded ${accent ? 'text-vale-cyan' : 'text-vale-text'}`}
+        className={`w-full bg-transparent text-xs sm:text-sm font-semibold border-none outline-none p-0 focus:ring-1 focus:ring-vale-arden/30 rounded ${accent ? 'text-vale-cyan' : 'text-vale-text'}`}
       />
     </div>
   );

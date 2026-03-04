@@ -20,9 +20,9 @@ export default function App() {
   ];
 
   return (
-    <div className="flex h-screen bg-vale-bg text-vale-text">
-      {/* Sidebar */}
-      <aside className="w-64 bg-vale-surface border-r border-vale-border flex flex-col overflow-y-auto">
+    <div className="flex flex-col md:flex-row h-screen bg-vale-bg text-vale-text">
+      {/* Desktop Sidebar — hidden on mobile */}
+      <aside className="hidden md:flex w-64 bg-vale-surface border-r border-vale-border flex-col overflow-y-auto shrink-0">
         {/* Logo */}
         <div className="p-6 border-b border-vale-border flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-vale-mint to-vale-purple flex items-center justify-center">
@@ -68,8 +68,23 @@ export default function App() {
         </div>
       </aside>
 
+      {/* Mobile Header — visible only on mobile */}
+      <header className="md:hidden flex items-center justify-between px-4 py-3 bg-vale-surface border-b border-vale-border shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-vale-mint to-vale-purple flex items-center justify-center">
+            <span className="text-white font-bold text-sm">V</span>
+          </div>
+          <span className="text-lg font-bold text-vale-text tracking-wide">VALE</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-vale-lincoln text-xs font-semibold">L</span>
+          <span className="text-vale-muted text-xs">&</span>
+          <span className="text-vale-arden text-xs font-semibold">A</span>
+        </div>
+      </header>
+
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/memory" element={<Memory />} />
@@ -79,6 +94,29 @@ export default function App() {
           <Route path="/journal" element={<Journal />} />
         </Routes>
       </main>
+
+      {/* Mobile Bottom Nav — visible only on mobile */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-vale-surface border-t border-vale-border flex items-center justify-around py-2 px-1 z-50">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors min-w-0 ${
+                isActive
+                  ? 'text-vale-accent'
+                  : 'text-vale-muted'
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
