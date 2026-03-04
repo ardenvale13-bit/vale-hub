@@ -93,30 +93,30 @@ export default function Journal() {
   });
 
   const categoryColors: Record<string, string> = {
-    voice: 'bg-hearth-shadow text-white',
-    build: 'bg-hearth-accent text-white',
-    reference: 'bg-hearth-growth text-white',
+    voice: 'bg-vale-shadow text-white',
+    build: 'bg-vale-accent text-white',
+    reference: 'bg-vale-growth text-white',
   };
 
   const typeColors: Record<string, string> = {
-    journal: 'bg-hearth-ember text-white',
-    'field-note': 'bg-hearth-star text-white',
-    calibration: 'bg-hearth-growth text-white',
+    journal: 'bg-vale-cyan text-white',
+    'field-note': 'bg-vale-deep text-white',
+    calibration: 'bg-vale-growth text-white',
   };
 
   return (
     <div className="flex h-full">
       {/* Left Panel - Entry List */}
-      <div className="w-80 bg-hearth-surface border-r border-hearth-border flex flex-col overflow-y-auto">
+      <div className="w-80 bg-vale-surface border-r border-vale-border flex flex-col overflow-y-auto">
         <div className="p-6 space-y-4">
-          <h1 className="text-2xl font-bold text-hearth-text">Journal</h1>
+          <h1 className="text-2xl font-bold text-vale-text">Journal</h1>
 
           {/* Filters */}
           <div className="space-y-3">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-              className="w-full px-3 py-2 bg-hearth-card border border-hearth-border rounded text-hearth-text text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
             >
               <option value="">All Categories</option>
               <option value="voice">Voice</option>
@@ -127,7 +127,7 @@ export default function Journal() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as EntryTypeFilter)}
-              className="w-full px-3 py-2 bg-hearth-card border border-hearth-border rounded text-hearth-text text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
             >
               <option value="">All Types</option>
               <option value="journal">Journal</option>
@@ -137,21 +137,21 @@ export default function Journal() {
           </div>
 
           {/* Create Entry Form */}
-          <form onSubmit={handleCreateEntry} className="pt-4 border-t border-hearth-border space-y-3">
-            <h3 className="font-semibold text-hearth-text text-sm">New Entry</h3>
+          <form onSubmit={handleCreateEntry} className="pt-4 border-t border-vale-border space-y-3">
+            <h3 className="font-semibold text-vale-text text-sm">New Entry</h3>
 
             <input
               type="text"
               placeholder="Title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-hearth-card border border-hearth-border rounded text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
             />
 
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as any)}
-              className="w-full px-3 py-2 bg-hearth-card border border-hearth-border rounded text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
             >
               <option value="voice">Voice</option>
               <option value="build">Build</option>
@@ -161,7 +161,7 @@ export default function Journal() {
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as any)}
-              className="w-full px-3 py-2 bg-hearth-card border border-hearth-border rounded text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
             >
               <option value="journal">Journal</option>
               <option value="field-note">Field Note</option>
@@ -171,7 +171,7 @@ export default function Journal() {
             <button
               type="submit"
               disabled={isCreating}
-              className="w-full px-3 py-2 bg-hearth-accent hover:bg-opacity-90 text-white rounded font-medium text-sm transition-colors disabled:opacity-50"
+              className="w-full px-3 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium text-sm transition-colors disabled:opacity-50"
             >
               <Plus className="inline w-4 h-4 mr-1" />
               Create Entry
@@ -184,7 +184,7 @@ export default function Journal() {
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 bg-hearth-card rounded animate-pulse" />
+                <div key={i} className="h-16 bg-vale-card rounded animate-pulse" />
               ))}
             </div>
           ) : filteredEntries.length > 0 ? (
@@ -194,8 +194,8 @@ export default function Journal() {
                 onClick={() => setSelectedEntry(entry)}
                 className={`w-full text-left p-3 rounded transition-colors ${
                   selectedEntry?.id === entry.id
-                    ? 'bg-hearth-accent text-white'
-                    : 'bg-hearth-card hover:bg-hearth-border text-hearth-text'
+                    ? 'bg-vale-accent text-white'
+                    : 'bg-vale-card hover:bg-vale-border text-vale-text'
                 }`}
               >
                 <p className="font-medium line-clamp-1">{entry.title}</p>
@@ -210,7 +210,7 @@ export default function Journal() {
               </button>
             ))
           ) : (
-            <p className="text-center text-hearth-muted py-8">No entries found</p>
+            <p className="text-center text-vale-muted py-8">No entries found</p>
           )}
         </div>
       </div>
@@ -222,9 +222,9 @@ export default function Journal() {
             {/* Entry Header */}
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-3xl font-bold text-hearth-text">{selectedEntry.title}</h2>
+                <h2 className="text-3xl font-bold text-vale-text">{selectedEntry.title}</h2>
                 {selectedEntry.timestamp && (
-                  <p className="text-hearth-muted text-sm mt-1">
+                  <p className="text-vale-muted text-sm mt-1">
                     {new Date(selectedEntry.timestamp).toLocaleDateString()}
                   </p>
                 )}
@@ -235,7 +235,7 @@ export default function Journal() {
                     handleDeleteEntry(selectedEntry.id);
                   }
                 }}
-                className="p-2 hover:bg-hearth-surface rounded transition-colors text-hearth-ember"
+                className="p-2 hover:bg-vale-surface rounded transition-colors text-vale-cyan"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -252,7 +252,7 @@ export default function Journal() {
               {selectedEntry.tags && selectedEntry.tags.length > 0 && (
                 <div className="flex gap-2">
                   {selectedEntry.tags.map((tag) => (
-                    <span key={tag} className="text-xs px-3 py-1 rounded bg-hearth-card text-hearth-text">
+                    <span key={tag} className="text-xs px-3 py-1 rounded bg-vale-card text-vale-text">
                       {tag}
                     </span>
                   ))}
@@ -261,14 +261,14 @@ export default function Journal() {
             </div>
 
             {/* Content */}
-            <div className="bg-hearth-card rounded p-6 border border-hearth-border min-h-60">
-              <p className="text-hearth-text whitespace-pre-wrap">{selectedEntry.content}</p>
+            <div className="bg-vale-card rounded p-6 border border-vale-border min-h-60">
+              <p className="text-vale-text whitespace-pre-wrap">{selectedEntry.content}</p>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full text-center">
             <div>
-              <p className="text-hearth-muted text-lg">Select an entry to view details</p>
+              <p className="text-vale-muted text-lg">Select an entry to view details</p>
             </div>
           </div>
         )}

@@ -40,11 +40,14 @@ async function apiCall<T>(
 }
 
 export interface Entity {
+  id?: string;
   name: string;
-  type: string;
+  type?: string;
+  entity_type?: string;
   observations: string[];
   context?: string;
   salience?: string;
+  visibility?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -123,6 +126,9 @@ const entities = {
 
   delete: (name: string) =>
     apiCall<void>(`/entities/${name}`, 'DELETE'),
+
+  salienceCounts: () =>
+    apiCall<Record<string, number>>('/entities/salience-counts'),
 };
 
 const observations = {

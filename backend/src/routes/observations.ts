@@ -7,13 +7,16 @@ const router = Router();
 
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { entity_id, observation } = req.body;
+    // Accept both 'entity_id' (backend/MCP) and 'entityName' (frontend)
+    const { entity_id, entityName, observation } = req.body;
+    const entityRef = entity_id || entityName;
 
-    if (!entity_id || !observation) {
-      throw new AppError(400, 'Missing required fields: entity_id, observation');
+    if (!entityRef || !observation) {
+      throw new AppError(400, 'Missing required fields: entity_id (or entityName), observation');
     }
 
-    const obs = await memoryService.addObservation(req.userId, entity_id, observation);
+    // addObservation already handles both UUID and name lookups
+    const obs = await memoryService.addObservation(req.userId, entityRef, observation);
 
     res.status(201).json(obs);
   } catch (error) {

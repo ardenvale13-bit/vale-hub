@@ -27,6 +27,9 @@ export interface Relation {
   created_at: string;
 }
 
+// UUID v4 regex for detecting if a string is a UUID
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export class MemoryService {
   private supabase = getSupabaseClient();
 
@@ -108,12 +111,89 @@ export class MemoryService {
     }
   }
 
-  async listEntities(userId: string, limit = 50): Promise<Entity[]> {
+  // Lookup by UUID or by name — used by frontend which passes names
+  async getEntityByIdOrName(userId: string, idOrName: string): Promise<Entity> {
+    if (UUID_REGEX.test(idOrName)) {
+      return this.getEntity(userId, idOrName);
+    }
+
+    // Look up by name
     try {
-      const { data: entities, error: entitiesError } = await this.supabase
+      const { data: entity, error: entityError } = await this.supabase
         .from('entities')
         .select('*')
         .eq('user_id', userId)
+        .eq('name', idOrName)
+        .single();
+
+      if (entityError) throw entityError;
+      if (!entity) {
+        throw new AppError(404, `Entity not found: ${idOrName}`);
+      }
+
+      const { data: observations, error: obsError } = await this.supabase
+        .from('observations')
+        .select('observation')
+        .eq('entity_id', entity.id)
+        .order('created_at', { ascending: false });
+
+      if (obsError) throw obsError;
+
+      return {
+        id: entity.id,
+        name: entity.name,
+        entity_type: entity.entity_type,
+        observations: observations?.map((o) => o.observation) || [],
+        context: entity.context,
+        salience: entity.salience,
+        visibility: entity.visibility,
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(500, `Failed to get entity by name: ${error}`);
+    }
+  }
+
+  async deleteEntityByIdOrName(userId: string, idOrName: string): Promise<void> {
+    if (UUID_REGEX.test(idOrName)) {
+      return this.deleteEntity(userId, idOrName);
+    }
+
+    const { data: entity } = await this.supabase
+      .from('entities')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('name', idOrName)
+      .single();
+
+    if (!entity) {
+      throw new AppError(404, `Entity not found: ${idOrName}`);
+    }
+
+    return this.deleteEntity(userId, entity.id);
+  }
+
+  async listEntities(
+    userId: string,
+    limit = 50,
+    salience?: string,
+    context?: string,
+  ): Promise<Entity[]> {
+    try {
+      let query = this.supabase
+        .from('entities')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (salience) {
+        query = query.eq('salience', salience);
+      }
+      if (context) {
+        query = query.eq('context', context);
+      }
+
+      const { data: entities, error: entitiesError } = await query
+        .order('updated_at', { ascending: false })
         .limit(limit);
 
       if (entitiesError) throw entitiesError;
@@ -193,14 +273,19 @@ export class MemoryService {
     try {
       let entityId = entityIdOrName;
 
-      const { data: existingEntity } = await this.supabase
-        .from('entities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('id', entityIdOrName)
-        .single();
+      if (UUID_REGEX.test(entityIdOrName)) {
+        const { data: existingEntity } = await this.supabase
+          .from('entities')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('id', entityIdOrName)
+          .single();
 
-      if (!existingEntity) {
+        if (!existingEntity) {
+          throw new AppError(404, `Entity not found: ${entityIdOrName}`);
+        }
+      } else {
+        // Look up by name
         const { data: entityByName } = await this.supabase
           .from('entities')
           .select('id')
@@ -211,6 +296,7 @@ export class MemoryService {
         if (entityByName) {
           entityId = entityByName.id;
         } else {
+          // Auto-create entity with the given name
           const newEntity = await this.createEntity(userId, entityIdOrName, 'general');
           entityId = newEntity.id;
         }
@@ -401,6 +487,39 @@ export class MemoryService {
       return entityList;
     } catch (error) {
       throw new AppError(500, `Failed to search entities: ${error}`);
+    }
+  }
+
+  // Get counts of entities per salience level
+  async getSalienceCounts(userId: string): Promise<Record<string, number>> {
+    try {
+      const { data: entities, error } = await this.supabase
+        .from('entities')
+        .select('salience')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const counts: Record<string, number> = {
+        'foundational': 0,
+        'active-immediate': 0,
+        'active-recent': 0,
+        'background': 0,
+        'archive': 0,
+      };
+
+      for (const entity of entities || []) {
+        const s = entity.salience || 'background';
+        if (counts[s] !== undefined) {
+          counts[s]++;
+        } else {
+          counts[s] = 1;
+        }
+      }
+
+      return counts;
+    } catch (error) {
+      throw new AppError(500, `Failed to get salience counts: ${error}`);
     }
   }
 

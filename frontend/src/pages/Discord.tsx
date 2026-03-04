@@ -191,8 +191,8 @@ export default function Discord() {
     <div className="p-8 max-w-5xl">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-hearth-text mb-2">Discord</h1>
-        <p className="text-hearth-muted">Connect and control your Discord bot</p>
+        <h1 className="text-4xl font-bold text-vale-text mb-2">Discord</h1>
+        <p className="text-vale-muted">Connect and control your Discord bot</p>
       </div>
 
       {/* Error / Success */}
@@ -209,9 +209,9 @@ export default function Discord() {
       )}
 
       {/* Bot Status + Connection */}
-      <div className="bg-hearth-card border border-hearth-border rounded-lg p-6 mb-8">
+      <div className="bg-vale-card border border-vale-border rounded-lg p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-hearth-text">Bot Status</h2>
+          <h2 className="text-lg font-semibold text-vale-text">Bot Status</h2>
           <div className="flex items-center gap-3">
             {botStatus.connected ? (
               <>
@@ -230,12 +230,12 @@ export default function Discord() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <WifiOff className="w-4 h-4 text-hearth-muted" />
-                <span className="text-sm text-hearth-muted">Disconnected</span>
+                <WifiOff className="w-4 h-4 text-vale-muted" />
+                <span className="text-sm text-vale-muted">Disconnected</span>
                 <button
                   onClick={handleReconnect}
                   disabled={isConnecting}
-                  className="px-3 py-1 text-sm bg-hearth-accent/20 text-hearth-accent rounded hover:bg-hearth-accent/30 transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-sm bg-vale-accent/20 text-vale-accent rounded hover:bg-vale-accent/30 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3 h-3 inline mr-1 ${isConnecting ? 'animate-spin' : ''}`} />
                   Reconnect
@@ -248,20 +248,20 @@ export default function Discord() {
         {!botStatus.connected && (
           <form onSubmit={handleConnect} className="flex gap-3 mt-4">
             <div className="flex-1 relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-hearth-muted" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vale-muted" />
               <input
                 type="password"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 placeholder="Paste your Discord bot token"
-                className="w-full pl-10 pr-4 py-3 bg-hearth-surface border border-hearth-border rounded text-hearth-text placeholder-hearth-muted focus:outline-none focus:border-hearth-accent"
+                className="w-full pl-10 pr-4 py-3 bg-vale-surface border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent"
                 disabled={isConnecting}
               />
             </div>
             <button
               type="submit"
               disabled={!token.trim() || isConnecting}
-              className="px-6 py-3 bg-hearth-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-3 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isConnecting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -278,10 +278,10 @@ export default function Discord() {
       {botStatus.connected && (
         <div className="grid grid-cols-12 gap-4 h-[600px]">
           {/* Sidebar: Guilds + Channels */}
-          <div className="col-span-3 bg-hearth-card border border-hearth-border rounded-lg overflow-hidden flex flex-col">
+          <div className="col-span-3 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col">
             {/* Guilds */}
-            <div className="p-3 border-b border-hearth-border">
-              <h3 className="text-xs font-semibold text-hearth-muted uppercase tracking-wider flex items-center gap-1">
+            <div className="p-3 border-b border-vale-border">
+              <h3 className="text-xs font-semibold text-vale-muted uppercase tracking-wider flex items-center gap-1">
                 <Server className="w-3 h-3" />
                 Servers
               </h3>
@@ -293,8 +293,8 @@ export default function Discord() {
                     onClick={() => handleSelectGuild(guild)}
                     className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between ${
                       selectedGuild?.id === guild.id
-                        ? 'bg-hearth-accent/20 text-hearth-accent'
-                        : 'text-hearth-text hover:bg-hearth-surface'
+                        ? 'bg-vale-accent/20 text-vale-accent'
+                        : 'text-vale-text hover:bg-vale-surface'
                     }`}
                   >
                     <span className="truncate">{guild.name}</span>
@@ -303,15 +303,15 @@ export default function Discord() {
 
                   {/* Channels under selected guild */}
                   {selectedGuild?.id === guild.id && channels.length > 0 && (
-                    <div className="bg-hearth-surface/50">
+                    <div className="bg-vale-surface/50">
                       {channels.map((channel) => (
                         <button
                           key={channel.id}
                           onClick={() => handleSelectChannel(channel)}
                           className={`w-full text-left px-4 py-1.5 text-sm transition-colors flex items-center gap-1.5 ${
                             selectedChannel?.id === channel.id
-                              ? 'bg-hearth-accent/10 text-hearth-accent'
-                              : 'text-hearth-muted hover:text-hearth-text hover:bg-hearth-surface'
+                              ? 'bg-vale-accent/10 text-vale-accent'
+                              : 'text-vale-muted hover:text-vale-text hover:bg-vale-surface'
                           }`}
                         >
                           <Hash className="w-3 h-3 flex-shrink-0" />
@@ -326,29 +326,29 @@ export default function Discord() {
           </div>
 
           {/* Chat Area */}
-          <div className="col-span-9 bg-hearth-card border border-hearth-border rounded-lg overflow-hidden flex flex-col">
+          <div className="col-span-9 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col">
             {/* Channel Header */}
-            <div className="px-4 py-3 border-b border-hearth-border flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-vale-border flex items-center justify-between">
               {selectedChannel ? (
                 <>
                   <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-hearth-muted" />
-                    <span className="font-medium text-hearth-text">{selectedChannel.name}</span>
+                    <Hash className="w-4 h-4 text-vale-muted" />
+                    <span className="font-medium text-vale-text">{selectedChannel.name}</span>
                     {selectedChannel.parent && (
-                      <span className="text-xs text-hearth-muted">in {selectedChannel.parent}</span>
+                      <span className="text-xs text-vale-muted">in {selectedChannel.parent}</span>
                     )}
                   </div>
                   <button
                     onClick={refreshMessages}
                     disabled={isLoadingMessages}
-                    className="p-1.5 text-hearth-muted hover:text-hearth-text transition-colors"
+                    className="p-1.5 text-vale-muted hover:text-vale-text transition-colors"
                     title="Refresh messages"
                   >
                     <RefreshCw className={`w-4 h-4 ${isLoadingMessages ? 'animate-spin' : ''}`} />
                   </button>
                 </>
               ) : (
-                <span className="text-hearth-muted text-sm">Select a channel to start chatting</span>
+                <span className="text-vale-muted text-sm">Select a channel to start chatting</span>
               )}
             </div>
 
@@ -357,30 +357,30 @@ export default function Discord() {
               {!selectedChannel ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <MessageSquare className="w-12 h-12 text-hearth-border mx-auto mb-3 opacity-50" />
-                    <p className="text-hearth-muted">Pick a server and channel from the sidebar</p>
+                    <MessageSquare className="w-12 h-12 text-vale-border mx-auto mb-3 opacity-50" />
+                    <p className="text-vale-muted">Pick a server and channel from the sidebar</p>
                   </div>
                 </div>
               ) : isLoadingMessages ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 text-hearth-accent animate-spin" />
+                  <Loader2 className="w-6 h-6 text-vale-accent animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-hearth-muted text-sm">No messages in this channel</p>
+                  <p className="text-vale-muted text-sm">No messages in this channel</p>
                 </div>
               ) : (
                 messages.map((msg) => (
                   <div key={msg.id} className="flex gap-3 group">
-                    <div className="w-8 h-8 rounded-full bg-hearth-accent/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-hearth-accent">
+                    <div className="w-8 h-8 rounded-full bg-vale-accent/20 flex items-center justify-center flex-shrink-0 text-xs font-bold text-vale-accent">
                       {msg.author.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-medium text-hearth-text text-sm">{msg.author}</span>
-                        <span className="text-xs text-hearth-muted">{formatTime(msg.timestamp)}</span>
+                        <span className="font-medium text-vale-text text-sm">{msg.author}</span>
+                        <span className="text-xs text-vale-muted">{formatTime(msg.timestamp)}</span>
                       </div>
-                      <p className="text-sm text-hearth-text/80 break-words">{msg.content}</p>
+                      <p className="text-sm text-vale-text/80 break-words">{msg.content}</p>
                     </div>
                   </div>
                 ))
@@ -390,19 +390,19 @@ export default function Discord() {
 
             {/* Message Input */}
             {selectedChannel && (
-              <form onSubmit={handleSendMessage} className="px-4 py-3 border-t border-hearth-border flex gap-2">
+              <form onSubmit={handleSendMessage} className="px-4 py-3 border-t border-vale-border flex gap-2">
                 <input
                   type="text"
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder={`Message #${selectedChannel.name}`}
-                  className="flex-1 px-4 py-2 bg-hearth-surface border border-hearth-border rounded text-hearth-text placeholder-hearth-muted focus:outline-none focus:border-hearth-accent text-sm"
+                  className="flex-1 px-4 py-2 bg-vale-surface border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent text-sm"
                   disabled={isSending}
                 />
                 <button
                   type="submit"
                   disabled={!messageInput.trim() || isSending}
-                  className="px-4 py-2 bg-hearth-accent hover:bg-opacity-90 text-white rounded transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded transition-colors disabled:opacity-50"
                 >
                   {isSending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -418,9 +418,9 @@ export default function Discord() {
 
       {/* Getting Started — Only show when disconnected */}
       {!botStatus.connected && (
-        <div className="bg-hearth-card border border-hearth-border rounded p-6">
-          <h3 className="font-semibold text-hearth-text mb-3">How to get a bot token</h3>
-          <p className="text-sm text-hearth-muted leading-relaxed">
+        <div className="bg-vale-card border border-vale-border rounded p-6">
+          <h3 className="font-semibold text-vale-text mb-3">How to get a bot token</h3>
+          <p className="text-sm text-vale-muted leading-relaxed">
             Go to the Discord Developer Portal, create a new application, add a bot under the "Bot" section,
             and copy the token. Then invite the bot to your server using the OAuth2 URL Generator with
             the "bot" scope and "Send Messages", "Read Message History", and "Add Reactions" permissions.

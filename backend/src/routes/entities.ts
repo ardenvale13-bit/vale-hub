@@ -7,16 +7,18 @@ const router = Router();
 
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { name, entity_type, observations, context, salience, visibility } = req.body;
+    // Accept both 'type' (frontend) and 'entity_type' (backend/MCP)
+    const { name, entity_type, type, observations, context, salience, visibility } = req.body;
+    const entityType = entity_type || type;
 
-    if (!name || !entity_type) {
-      throw new AppError(400, 'Missing required fields: name, entity_type');
+    if (!name || !entityType) {
+      throw new AppError(400, 'Missing required fields: name, entity_type (or type)');
     }
 
     const entity = await memoryService.createEntity(
       req.userId,
       name,
-      entity_type,
+      entityType,
       observations,
       context,
       salience,
@@ -32,11 +34,13 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-router.get('/:id', async (req: AuthenticatedRequest, res) => {
+// Get entity by ID or name
+router.get('/:idOrName', async (req: AuthenticatedRequest, res) => {
   try {
-    const { id } = req.params;
+    const { idOrName } = req.params;
 
-    const entity = await memoryService.getEntity(req.userId, id);
+    // Try UUID first, then fall back to name lookup
+    const entity = await memoryService.getEntityByIdOrName(req.userId, idOrName);
 
     res.json(entity);
   } catch (error) {
@@ -47,12 +51,30 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Salience counts — must be before /:idOrName to avoid matching "salience-counts" as a name
+router.get('/salience-counts', async (req: AuthenticatedRequest, res) => {
+  try {
+    const counts = await memoryService.getSalienceCounts(req.userId);
+    res.json(counts);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+  }
+});
+
 router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { limit } = req.query;
+    const { limit, salience, context } = req.query;
     const limitNum = limit ? parseInt(String(limit)) : 50;
 
-    const entities = await memoryService.listEntities(req.userId, limitNum);
+    const entities = await memoryService.listEntities(
+      req.userId,
+      limitNum,
+      salience ? String(salience) : undefined,
+      context ? String(context) : undefined,
+    );
 
     res.json(entities);
   } catch (error) {
@@ -79,11 +101,12 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+// Delete by ID or name
+router.delete('/:idOrName', async (req: AuthenticatedRequest, res) => {
   try {
-    const { id } = req.params;
+    const { idOrName } = req.params;
 
-    await memoryService.deleteEntity(req.userId, id);
+    await memoryService.deleteEntityByIdOrName(req.userId, idOrName);
 
     res.status(204).send();
   } catch (error) {

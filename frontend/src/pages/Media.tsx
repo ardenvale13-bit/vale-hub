@@ -11,20 +11,20 @@ export default function Media() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-hearth-text mb-2">Media</h1>
-        <p className="text-hearth-muted">Generate and manage images and voice notes</p>
+        <h1 className="text-4xl font-bold text-vale-text mb-2">Media</h1>
+        <p className="text-vale-muted">Generate and manage images and voice notes</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-8 border-b border-hearth-border">
+      <div className="flex gap-4 mb-8 border-b border-vale-border">
         {(['voice', 'images'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-3 font-medium transition-colors capitalize ${
               activeTab === tab
-                ? 'border-b-2 border-hearth-accent text-hearth-accent'
-                : 'text-hearth-muted hover:text-hearth-text'
+                ? 'border-b-2 border-vale-accent text-vale-accent'
+                : 'text-vale-muted hover:text-vale-text'
             }`}
           >
             {tab === 'images' && <Image className="inline w-4 h-4 mr-2" />}
@@ -45,10 +45,10 @@ export default function Media() {
 
 function ImagesTab() {
   return (
-    <div className="bg-hearth-card border border-hearth-border rounded-lg p-12 text-center">
-      <Image className="w-16 h-16 text-hearth-border mx-auto mb-4 opacity-50" />
-      <p className="text-hearth-muted mb-2">Image generation coming next</p>
-      <p className="text-sm text-hearth-muted">
+    <div className="bg-vale-card border border-vale-border rounded-lg p-12 text-center">
+      <Image className="w-16 h-16 text-vale-border mx-auto mb-4 opacity-50" />
+      <p className="text-vale-muted mb-2">Image generation coming next</p>
+      <p className="text-sm text-vale-muted">
         Voice notes are live — image generation with DALL-E is up next.
       </p>
     </div>
@@ -194,35 +194,35 @@ function VoiceTab() {
       )}
 
       {/* Generation Form */}
-      <div className="bg-hearth-surface border border-hearth-border rounded-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-hearth-text flex items-center gap-2">
-          <Volume2 className="w-5 h-5 text-hearth-accent" />
+      <div className="bg-vale-surface border border-vale-border rounded-lg p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-vale-text flex items-center gap-2">
+          <Volume2 className="w-5 h-5 text-vale-accent" />
           Create Voice Note
         </h2>
 
         <form onSubmit={handleGenerate} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-hearth-text mb-2">
+            <label className="block text-sm font-medium text-vale-text mb-2">
               Text to speak
             </label>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Type what you want the voice to say..."
-              className="w-full px-4 py-3 bg-hearth-card border border-hearth-border rounded text-hearth-text placeholder-hearth-muted min-h-24 focus:outline-none focus:border-hearth-accent"
+              className="w-full px-4 py-3 bg-vale-card border border-vale-border rounded text-vale-text placeholder-vale-muted min-h-24 focus:outline-none focus:border-vale-accent"
               disabled={isGenerating}
             />
           </div>
 
           {voices.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-hearth-text mb-2">
+              <label className="block text-sm font-medium text-vale-text mb-2">
                 Voice
               </label>
               <select
                 value={selectedVoice}
                 onChange={(e) => setSelectedVoice(e.target.value)}
-                className="w-full px-4 py-2 bg-hearth-card border border-hearth-border rounded text-hearth-text focus:outline-none focus:border-hearth-accent"
+                className="w-full px-4 py-2 bg-vale-card border border-vale-border rounded text-vale-text focus:outline-none focus:border-vale-accent"
                 disabled={isGenerating}
               >
                 <option value="">Default voice</option>
@@ -238,7 +238,7 @@ function VoiceTab() {
           <button
             type="submit"
             disabled={!text.trim() || isGenerating}
-            className="px-6 py-2 bg-hearth-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isGenerating ? (
               <>
@@ -257,20 +257,20 @@ function VoiceTab() {
 
       {/* Voice Notes List */}
       <div>
-        <h2 className="text-lg font-semibold text-hearth-text mb-4">
+        <h2 className="text-lg font-semibold text-vale-text mb-4">
           Voice Notes {notes.length > 0 && `(${notes.length})`}
         </h2>
 
         {isLoading ? (
           <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 text-hearth-accent mx-auto animate-spin" />
-            <p className="text-hearth-muted mt-2">Loading voice notes...</p>
+            <Loader2 className="w-8 h-8 text-vale-accent mx-auto animate-spin" />
+            <p className="text-vale-muted mt-2">Loading voice notes...</p>
           </div>
         ) : notes.length === 0 ? (
-          <div className="bg-hearth-card border border-hearth-border rounded-lg p-12 text-center">
-            <Mic className="w-16 h-16 text-hearth-border mx-auto mb-4 opacity-50" />
-            <p className="text-hearth-muted mb-2">No voice notes yet</p>
-            <p className="text-sm text-hearth-muted">
+          <div className="bg-vale-card border border-vale-border rounded-lg p-12 text-center">
+            <Mic className="w-16 h-16 text-vale-border mx-auto mb-4 opacity-50" />
+            <p className="text-vale-muted mb-2">No voice notes yet</p>
+            <p className="text-sm text-vale-muted">
               Type some text above and generate your first voice note
             </p>
           </div>
@@ -279,36 +279,36 @@ function VoiceTab() {
             {notes.map((note) => (
               <div
                 key={note.id}
-                className="bg-hearth-card border border-hearth-border rounded-lg p-4 flex items-center gap-4 hover:border-hearth-accent/50 transition-colors"
+                className="bg-vale-card border border-vale-border rounded-lg p-4 flex items-center gap-4 hover:border-vale-accent/50 transition-colors"
               >
                 {/* Play Button */}
                 <button
                   onClick={() => handlePlay(note)}
-                  className="w-10 h-10 rounded-full bg-hearth-accent/20 hover:bg-hearth-accent/40 flex items-center justify-center flex-shrink-0 transition-colors"
+                  className="w-10 h-10 rounded-full bg-vale-accent/20 hover:bg-vale-accent/40 flex items-center justify-center flex-shrink-0 transition-colors"
                 >
                   {playingId === note.id ? (
-                    <Pause className="w-4 h-4 text-hearth-accent" />
+                    <Pause className="w-4 h-4 text-vale-accent" />
                   ) : (
-                    <Play className="w-4 h-4 text-hearth-accent ml-0.5" />
+                    <Play className="w-4 h-4 text-vale-accent ml-0.5" />
                   )}
                 </button>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-hearth-text text-sm truncate">
+                  <p className="text-vale-text text-sm truncate">
                     {note.text_content}
                   </p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs text-hearth-muted">
+                    <span className="text-xs text-vale-muted">
                       {formatDate(note.created_at)}
                     </span>
                     {note.media?.file_size_bytes && (
-                      <span className="text-xs text-hearth-muted">
+                      <span className="text-xs text-vale-muted">
                         {formatSize(note.media.file_size_bytes)}
                       </span>
                     )}
                     {note.speaker_perspective && note.speaker_perspective !== 'default' && (
-                      <span className="text-xs text-hearth-accent">
+                      <span className="text-xs text-vale-accent">
                         {note.speaker_perspective}
                       </span>
                     )}
@@ -318,7 +318,7 @@ function VoiceTab() {
                 {/* Delete */}
                 <button
                   onClick={() => handleDelete(note.id)}
-                  className="p-2 text-hearth-muted hover:text-red-400 transition-colors flex-shrink-0"
+                  className="p-2 text-vale-muted hover:text-red-400 transition-colors flex-shrink-0"
                   title="Delete voice note"
                 >
                   <Trash2 className="w-4 h-4" />
