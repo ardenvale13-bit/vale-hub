@@ -91,10 +91,12 @@ export interface Status {
 }
 
 export interface Identity {
-  category: string;
+  id?: string;
+  owner_perspective: string;
+  category?: string;
   key: string;
   value: string;
-  perspective?: string;
+  updated_at?: string;
 }
 
 export interface ContextInfo {
@@ -200,10 +202,10 @@ const status = {
 
 const identity = {
   get: (perspective?: string) =>
-    apiCall<Identity | Identity[]>(`/identity${perspective ? `/${perspective}` : ''}`),
+    apiCall<Identity[]>(`/identity${perspective ? `?owner_perspective=${encodeURIComponent(perspective)}` : ''}`),
 
-  set: (identity: Identity) =>
-    apiCall<Identity>('/identity', 'POST', identity),
+  set: (data: { owner_perspective: string; key: string; value: string; category?: string }) =>
+    apiCall<Identity>('/identity', 'POST', data),
 
   update: (category: string, key: string, value: string) =>
     apiCall<Identity>(`/identity/${category}/${key}`, 'PUT', { value }),

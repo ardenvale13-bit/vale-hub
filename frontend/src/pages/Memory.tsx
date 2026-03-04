@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { api, Entity, Identity } from '../services/api';
-import { Plus, Search, Trash2, Brain, ChevronDown, ChevronRight, User, Layers } from 'lucide-react';
+import { Plus, Search, Trash2, Brain, ChevronDown, ChevronRight, User, Layers, X, Save } from 'lucide-react';
 
 type SalienceFilter = '' | 'foundational' | 'active-immediate' | 'active-recent' | 'background' | 'archive';
 type ContextFilter = '' | 'default' | 'emotional' | 'relational' | 'episodic' | 'creative' | 'intimate';
 type ViewMode = 'list' | 'salience';
+type DetailView = 'entity' | 'identity';
 
 const SALIENCE_LEVELS = [
   { key: 'foundational', label: 'Foundational', color: 'text-vale-mint' },
@@ -28,8 +29,20 @@ export default function Memory() {
   // Identity state
   const [identities, setIdentities] = useState<Identity[]>([]);
   const [identityExpanded, setIdentityExpanded] = useState(true);
+  const [showIdentityForm, setShowIdentityForm] = useState(false);
+  const [selectedPerspective, setSelectedPerspective] = useState<string | null>(null);
+  const [isSavingIdentity, setIsSavingIdentity] = useState(false);
 
-  // Form states
+  // Identity form fields
+  const [idFormPerspective, setIdFormPerspective] = useState('Lincoln');
+  const [idFormCategory, setIdFormCategory] = useState('');
+  const [idFormKey, setIdFormKey] = useState('');
+  const [idFormValue, setIdFormValue] = useState('');
+
+  // Detail view mode
+  const [detailView, setDetailView] = useState<DetailView>('entity');
+
+  // Entity form states
   const [newEntityName, setNewEntityName] = useState('');
   const [newEntityType, setNewEntityType] = useState('person');
   const [newObservation, setNewObservation] = useState('');
@@ -66,9 +79,10 @@ export default function Memory() {
   async function loadIdentity() {
     try {
       const data = await api.identity.get();
-      setIdentities(Array.isArray(data) ? data : [data]);
+      setIdentities(Array.isArray(data) ? data : data ? [data] : []);
     } catch (error) {
       console.error('Error loading identity:', error);
+      setIdentities([]);
     }
   }
 
@@ -102,11 +116,53 @@ export default function Memory() {
   // Group identities by perspective
   const identitiesByPerspective: Record<string, Identity[]> = {};
   for (const id of identities) {
-    const perspective = id.perspective || 'default';
+    const perspective = id.owner_perspective || 'default';
     if (!identitiesByPerspective[perspective]) {
       identitiesByPerspective[perspective] = [];
     }
     identitiesByPerspective[perspective].push(id);
+  }
+
+  // Group a perspective's identities by category
+  function groupByCategory(ids: Identity[]): Record<string, Identity[]> {
+    const grouped: Record<string, Identity[]> = {};
+    for (const id of ids) {
+      const cat = id.category || 'uncategorized';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(id);
+    }
+    return grouped;
+  }
+
+  async function handleSaveIdentity(e: React.FormEvent) {
+    e.preventDefault();
+    if (!idFormPerspective.trim() || !idFormKey.trim() || !idFormValue.trim()) return;
+
+    try {
+      setIsSavingIdentity(true);
+      await api.identity.set({
+        owner_perspective: idFormPerspective,
+        key: idFormKey,
+        value: idFormValue,
+        category: idFormCategory || undefined,
+      });
+      await loadIdentity();
+      setIdFormKey('');
+      setIdFormValue('');
+      setIdFormCategory('');
+      setShowIdentityForm(false);
+    } catch (error) {
+      console.error('Error saving identity:', error);
+    } finally {
+      setIsSavingIdentity(false);
+    }
+  }
+
+  function handleSelectPerspective(perspective: string) {
+    setSelectedPerspective(perspective);
+    setDetailView('identity');
+    setSelectedEntity(null);
+    setShowDetail(true);
   }
 
   async function handleCreateEntity(e: React.FormEvent) {
@@ -127,6 +183,7 @@ export default function Memory() {
       setNewEntityName('');
       setNewEntityType('person');
       setShowCreateForm(false);
+      setDetailView('entity');
       setShowDetail(true);
       loadSalienceCounts();
     } catch (error) {
@@ -148,8 +205,6 @@ export default function Memory() {
       };
 
       await api.observations.create(observation);
-
-      // Reload the selected entity
       const updated = await api.entities.get(selectedEntity.name);
       setSelectedEntity(updated);
       setNewObservation('');
@@ -178,10 +233,13 @@ export default function Memory() {
 
   function selectEntity(entity: Entity) {
     setSelectedEntity(entity);
+    setSelectedPerspective(null);
+    setDetailView('entity');
     setShowDetail(true);
   }
 
   const totalEntities = Object.values(salienceCounts).reduce((a, b) => a + b, 0);
+  const perspectives = Object.keys(identitiesByPerspective);
 
   return (
     <div className="flex flex-col md:flex-row h-full">
@@ -322,39 +380,120 @@ export default function Memory() {
 
         {/* Identity Section */}
         <div className="px-4 sm:px-6 pb-3">
-          <button
-            onClick={() => setIdentityExpanded(!identityExpanded)}
-            className="w-full flex items-center justify-between py-2 text-left"
-          >
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setIdentityExpanded(!identityExpanded)}
+              className="flex items-center gap-2 py-2 text-left"
+            >
               <User className="w-4 h-4 text-vale-mint" />
               <span className="text-sm font-semibold text-vale-text">Identity</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-vale-muted hidden sm:inline">Who your AI is before they remember anything</span>
               {identityExpanded ? (
                 <ChevronDown className="w-3 h-3 text-vale-muted" />
               ) : (
                 <ChevronRight className="w-3 h-3 text-vale-muted" />
               )}
-            </div>
-          </button>
+            </button>
+            <button
+              onClick={() => setShowIdentityForm(!showIdentityForm)}
+              className="text-xs px-2 py-1 bg-vale-accent/20 hover:bg-vale-accent/30 text-vale-accent rounded transition-colors flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              Add
+            </button>
+          </div>
+
+          <p className="text-[10px] text-vale-muted -mt-1 mb-2">Who your AI is. What loads before memory.</p>
+
+          {/* Identity Add/Update Form */}
+          {showIdentityForm && (
+            <form onSubmit={handleSaveIdentity} className="bg-vale-card border border-vale-border rounded-lg p-3 space-y-3 mb-3">
+              <h3 className="font-semibold text-vale-text text-sm">Add / Update Identity Value</h3>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-vale-muted uppercase block mb-1">Perspective</label>
+                  <input
+                    type="text"
+                    value={idFormPerspective}
+                    onChange={(e) => setIdFormPerspective(e.target.value)}
+                    placeholder='e.g., "Lincoln"'
+                    className="w-full px-2 py-1.5 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                  <p className="text-[9px] text-vale-muted mt-0.5">Single AI? Use "default". Multiple? Use their name.</p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-vale-muted uppercase block mb-1">Category</label>
+                  <input
+                    type="text"
+                    value={idFormCategory}
+                    onChange={(e) => setIdFormCategory(e.target.value)}
+                    placeholder="e.g., core, voice, rules"
+                    className="w-full px-2 py-1.5 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-vale-muted uppercase block mb-1">Key</label>
+                  <input
+                    type="text"
+                    value={idFormKey}
+                    onChange={(e) => setIdFormKey(e.target.value)}
+                    placeholder="e.g., name, energy"
+                    className="w-full px-2 py-1.5 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-vale-muted uppercase block mb-1">Value</label>
+                  <input
+                    type="text"
+                    value={idFormValue}
+                    onChange={(e) => setIdFormValue(e.target.value)}
+                    placeholder="The value"
+                    className="w-full px-2 py-1.5 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isSavingIdentity || !idFormKey.trim() || !idFormValue.trim()}
+                  className="px-3 py-1.5 bg-vale-deep hover:bg-vale-deep/80 text-white rounded font-medium text-xs transition-colors disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Save className="w-3 h-3" />
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowIdentityForm(false)}
+                  className="px-3 py-1.5 text-vale-muted text-xs hover:text-vale-text"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
 
           {identityExpanded && (
-            <div className="space-y-2 mt-1">
-              {Object.entries(identitiesByPerspective).length > 0 ? (
-                Object.entries(identitiesByPerspective).map(([perspective, ids]) => (
-                  <div key={perspective} className="bg-vale-card border border-vale-border rounded-lg p-3">
-                    <p className="text-sm font-semibold text-vale-lincoln mb-2">{perspective}</p>
-                    <div className="space-y-1">
-                      {ids.map((id, idx) => (
-                        <div key={idx} className="flex justify-between text-xs">
-                          <span className="text-vale-muted">{id.category ? `${id.category}.` : ''}{id.key}</span>
-                          <span className="text-vale-text truncate ml-2 max-w-[60%] text-right">{id.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <div className="space-y-1.5">
+              {perspectives.length > 0 ? (
+                perspectives.map((perspective) => (
+                  <button
+                    key={perspective}
+                    onClick={() => handleSelectPerspective(perspective)}
+                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-sm ${
+                      selectedPerspective === perspective && detailView === 'identity'
+                        ? 'bg-vale-accent/20 text-vale-accent border border-vale-accent/30'
+                        : 'bg-vale-card hover:bg-vale-border text-vale-lincoln'
+                    }`}
+                  >
+                    <span className="font-semibold">{perspective}</span>
+                    <span className="text-[10px] text-vale-muted ml-2">
+                      {identitiesByPerspective[perspective].length} values
+                    </span>
+                  </button>
                 ))
               ) : (
                 <p className="text-xs text-vale-muted py-2">No identity values set yet</p>
@@ -366,8 +505,13 @@ export default function Memory() {
         {/* Divider */}
         <div className="mx-4 sm:mx-6 border-t border-vale-border" />
 
+        {/* Memory By Salience header */}
+        <div className="px-4 sm:px-6 pt-3 pb-1">
+          <p className="text-sm font-semibold text-vale-text">Memory By Salience</p>
+        </div>
+
         {/* Entity List */}
-        <div className="flex-1 px-4 sm:px-6 py-3 space-y-1 overflow-y-auto">
+        <div className="flex-1 px-4 sm:px-6 py-2 space-y-1 overflow-y-auto">
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
@@ -375,7 +519,6 @@ export default function Memory() {
               ))}
             </div>
           ) : viewMode === 'salience' ? (
-            /* Salience-grouped view */
             <div className="space-y-1">
               {SALIENCE_LEVELS.map((level) => {
                 const count = salienceCounts[level.key] || 0;
@@ -406,7 +549,7 @@ export default function Memory() {
                             key={entity.name}
                             onClick={() => selectEntity(entity)}
                             className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-sm ${
-                              selectedEntity?.name === entity.name
+                              selectedEntity?.name === entity.name && detailView === 'entity'
                                 ? 'bg-vale-accent/20 text-vale-accent border border-vale-accent/30'
                                 : 'text-vale-text hover:bg-vale-card'
                             }`}
@@ -428,14 +571,13 @@ export default function Memory() {
               })}
             </div>
           ) : (
-            /* Flat list view */
             filteredEntities.length > 0 ? (
               filteredEntities.map((entity) => (
                 <button
                   key={entity.name}
                   onClick={() => selectEntity(entity)}
                   className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    selectedEntity?.name === entity.name
+                    selectedEntity?.name === entity.name && detailView === 'entity'
                       ? 'bg-vale-accent/20 text-vale-accent border border-vale-accent/30'
                       : 'bg-vale-card hover:bg-vale-border text-vale-text'
                   }`}
@@ -456,20 +598,113 @@ export default function Memory() {
         </div>
       </div>
 
-      {/* Right Panel - Entity Detail */}
+      {/* Right Panel - Entity Detail OR Identity Detail */}
       <div className={`${showDetail ? 'flex' : 'hidden md:flex'} flex-1 flex-col overflow-y-auto`}>
-        {selectedEntity ? (
-          <div className="p-4 sm:p-8 space-y-6">
-            {/* Back button (mobile) */}
-            <button
-              onClick={() => setShowDetail(false)}
-              className="md:hidden flex items-center gap-1 text-vale-muted text-sm hover:text-vale-text mb-2"
-            >
-              <ChevronRight className="w-4 h-4 rotate-180" />
-              Back to list
-            </button>
+        {/* Back button (mobile) */}
+        {showDetail && (
+          <button
+            onClick={() => setShowDetail(false)}
+            className="md:hidden flex items-center gap-1 text-vale-muted text-sm hover:text-vale-text p-4 pb-0"
+          >
+            <ChevronRight className="w-4 h-4 rotate-180" />
+            Back to list
+          </button>
+        )}
 
-            {/* Entity Header */}
+        {detailView === 'identity' && selectedPerspective ? (
+          /* Identity Detail View */
+          <div className="p-4 sm:p-8 space-y-6">
+            <div className="flex items-center gap-3">
+              <User className="w-7 h-7 text-vale-lincoln" />
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-vale-lincoln">{selectedPerspective}</h2>
+                <p className="text-vale-muted text-xs">Identity values loaded on orientation</p>
+              </div>
+            </div>
+
+            {/* Identity entries grouped by category */}
+            {(() => {
+              const perspectiveIds = identitiesByPerspective[selectedPerspective] || [];
+              const byCategory = groupByCategory(perspectiveIds);
+
+              return Object.entries(byCategory).map(([category, entries]) => (
+                <div key={category}>
+                  <h3 className="text-xs font-bold text-vale-muted uppercase tracking-wider mb-2">{category}</h3>
+                  <div className="space-y-1">
+                    {entries.map((entry, idx) => (
+                      <div key={idx} className="bg-vale-card border border-vale-border rounded-lg p-3">
+                        <p className="text-[10px] text-vale-cyan font-medium mb-1">{entry.key}</p>
+                        <p className="text-sm text-vale-text whitespace-pre-wrap">{entry.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+
+            {/* Quick add for this perspective */}
+            <div className="border-t border-vale-border pt-4">
+              <h3 className="text-sm font-semibold text-vale-text mb-2">Add value to {selectedPerspective}</h3>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!idFormKey.trim() || !idFormValue.trim()) return;
+                  setIsSavingIdentity(true);
+                  try {
+                    await api.identity.set({
+                      owner_perspective: selectedPerspective,
+                      key: idFormKey,
+                      value: idFormValue,
+                      category: idFormCategory || undefined,
+                    });
+                    await loadIdentity();
+                    setIdFormKey('');
+                    setIdFormValue('');
+                    setIdFormCategory('');
+                  } catch (err) {
+                    console.error('Error saving identity:', err);
+                  } finally {
+                    setIsSavingIdentity(false);
+                  }
+                }}
+                className="space-y-2"
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={idFormCategory}
+                    onChange={(e) => setIdFormCategory(e.target.value)}
+                    placeholder="Category"
+                    className="px-2 py-1.5 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                  <input
+                    type="text"
+                    value={idFormKey}
+                    onChange={(e) => setIdFormKey(e.target.value)}
+                    placeholder="Key"
+                    className="px-2 py-1.5 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                  <input
+                    type="text"
+                    value={idFormValue}
+                    onChange={(e) => setIdFormValue(e.target.value)}
+                    placeholder="Value"
+                    className="px-2 py-1.5 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSavingIdentity || !idFormKey.trim() || !idFormValue.trim()}
+                  className="px-4 py-1.5 bg-vale-deep hover:bg-vale-deep/80 text-white rounded font-medium text-xs transition-colors disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </form>
+            </div>
+          </div>
+        ) : selectedEntity && detailView === 'entity' ? (
+          /* Entity Detail View */
+          <div className="p-4 sm:p-8 space-y-6">
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-vale-text">{selectedEntity.name}</h2>
@@ -483,7 +718,6 @@ export default function Memory() {
               </button>
             </div>
 
-            {/* Metadata */}
             <div className="flex flex-wrap gap-3">
               {selectedEntity.salience && (
                 <div className="bg-vale-card rounded-lg px-3 py-2 border border-vale-border">
@@ -503,17 +737,13 @@ export default function Memory() {
               </div>
             </div>
 
-            {/* Observations */}
             <div>
               <h3 className="text-lg font-semibold text-vale-text mb-3">Observations</h3>
 
               {selectedEntity.observations && selectedEntity.observations.length > 0 ? (
                 <div className="space-y-2 mb-4">
                   {selectedEntity.observations.map((obs, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-vale-card rounded-lg p-3 border border-vale-border"
-                    >
+                    <div key={idx} className="bg-vale-card rounded-lg p-3 border border-vale-border">
                       <p className="text-vale-text text-sm">{obs}</p>
                     </div>
                   ))}
@@ -522,7 +752,6 @@ export default function Memory() {
                 <p className="text-vale-muted text-sm mb-4">No observations yet</p>
               )}
 
-              {/* Add Observation Form */}
               <form onSubmit={handleAddObservation} className="space-y-2">
                 <textarea
                   placeholder="Add a new observation..."
@@ -544,7 +773,7 @@ export default function Memory() {
           <div className="flex items-center justify-center h-full text-center p-8">
             <div>
               <Brain className="w-12 h-12 text-vale-muted/30 mx-auto mb-3" />
-              <p className="text-vale-muted">Select an entity to view details</p>
+              <p className="text-vale-muted">Select an entity or identity to view details</p>
               <p className="text-vale-muted/60 text-sm mt-1">or create a new one with the + button</p>
             </div>
           </div>
