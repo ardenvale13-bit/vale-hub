@@ -1,0 +1,59 @@
+import { Router } from 'express';
+import { memoryService } from '../services/memory.service.js';
+import { AppError } from '../middleware/errorHandler.js';
+import { AuthenticatedRequest } from '../middleware/auth.js';
+
+const router = Router();
+
+router.post('/', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { entity_id, observation } = req.body;
+
+    if (!entity_id || !observation) {
+      throw new AppError(400, 'Missing required fields: entity_id, observation');
+    }
+
+    const obs = await memoryService.addObservation(req.userId, entity_id, observation);
+
+    res.status(201).json(obs);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+  }
+});
+
+router.get('/:entity_id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { entity_id } = req.params;
+    const { limit } = req.query;
+    const limitNum = limit ? parseInt(String(limit)) : 50;
+
+    const observations = await memoryService.getObservations(entity_id, limitNum);
+
+    res.json(observations);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+  }
+});
+
+router.delete('/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    await memoryService.deleteObservation(id);
+
+    res.status(204).send();
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+  }
+});
+
+export default router;
