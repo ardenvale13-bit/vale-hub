@@ -96,7 +96,7 @@ export class MemoryService {
 
       const { data: observations, error: obsError } = await this.supabase
         .from('observations')
-        .select('observation')
+        .select('content')
         .eq('entity_id', entityId)
         .order('created_at', { ascending: false });
 
@@ -106,7 +106,7 @@ export class MemoryService {
         id: entity.id,
         name: entity.name,
         entity_type: entity.entity_type,
-        observations: observations?.map((o) => o.observation) || [],
+        observations: observations?.map((o) => o.content) || [],
         context: entity.context,
         salience: entity.salience,
         visibility: entity.visibility,
@@ -139,7 +139,7 @@ export class MemoryService {
 
       const { data: observations, error: obsError } = await this.supabase
         .from('observations')
-        .select('observation')
+        .select('content')
         .eq('entity_id', entity.id)
         .order('created_at', { ascending: false });
 
@@ -149,7 +149,7 @@ export class MemoryService {
         id: entity.id,
         name: entity.name,
         entity_type: entity.entity_type,
-        observations: observations?.map((o) => o.observation) || [],
+        observations: observations?.map((o) => o.content) || [],
         context: entity.context,
         salience: entity.salience,
         visibility: entity.visibility,
@@ -208,7 +208,7 @@ export class MemoryService {
       for (const entity of entities || []) {
         const { data: observations, error: obsError } = await this.supabase
           .from('observations')
-          .select('observation')
+          .select('content')
           .eq('entity_id', entity.id);
 
         if (obsError) throw obsError;
@@ -217,7 +217,7 @@ export class MemoryService {
           id: entity.id,
           name: entity.name,
           entity_type: entity.entity_type,
-          observations: observations?.map((o) => o.observation) || [],
+          observations: observations?.map((o) => o.content) || [],
           context: entity.context,
           salience: entity.salience,
           visibility: entity.visibility,
@@ -311,8 +311,9 @@ export class MemoryService {
       const { data: obs, error: obsError } = await this.supabase
         .from('observations')
         .insert({
+          user_id: userId,
           entity_id: entityId,
-          observation,
+          content: observation,
         })
         .select('*')
         .single();
@@ -325,7 +326,7 @@ export class MemoryService {
       return {
         id: obs.id,
         entity_id: obs.entity_id,
-        observation: obs.observation,
+        observation: obs.content,
         created_at: obs.created_at,
       };
     } catch (error) {
@@ -349,7 +350,7 @@ export class MemoryService {
         observations?.map((o) => ({
           id: o.id,
           entity_id: o.entity_id,
-          observation: o.observation,
+          observation: o.content,
           created_at: o.created_at,
         })) || []
       );
@@ -474,7 +475,7 @@ export class MemoryService {
       for (const entity of entities || []) {
         const { data: observations, error: obsError } = await this.supabase
           .from('observations')
-          .select('observation')
+          .select('content')
           .eq('entity_id', entity.id);
 
         if (obsError) throw obsError;
@@ -483,7 +484,7 @@ export class MemoryService {
           id: entity.id,
           name: entity.name,
           entity_type: entity.entity_type,
-          observations: observations?.map((o) => o.observation) || [],
+          observations: observations?.map((o) => o.content) || [],
           context: entity.context,
           salience: entity.salience,
           visibility: entity.visibility,
@@ -552,7 +553,7 @@ export class MemoryService {
       for (const entity of entities || []) {
         const { data: observations, error: obsError } = await this.supabase
           .from('observations')
-          .select('observation, created_at')
+          .select('content, created_at')
           .eq('entity_id', entity.id)
           .gte('created_at', cutoffTime.toISOString())
           .order('created_at', { ascending: false })
@@ -560,7 +561,7 @@ export class MemoryService {
 
         if (obsError) continue;
 
-        const entityBlock = `## ${entity.name} (${entity.entity_type})\n${observations?.map((o) => `- ${o.observation}`).join('\n') || 'No observations'}\n\n`;
+        const entityBlock = `## ${entity.name} (${entity.entity_type})\n${observations?.map((o) => `- ${o.content}`).join('\n') || 'No observations'}\n\n`;
         const newLength = currentLength + entityBlock.length;
 
         if (newLength > maxLength) {
