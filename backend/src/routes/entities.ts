@@ -30,28 +30,12 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
-// Get entity by ID or name
-router.get('/:idOrName', async (req: AuthenticatedRequest, res) => {
-  try {
-    const { idOrName } = req.params;
-
-    // Try UUID first, then fall back to name lookup
-    const entity = await memoryService.getEntityByIdOrName(req.userId, idOrName);
-
-    res.json(entity);
-  } catch (error) {
-    if (error instanceof AppError) {
-      return res.status(error.statusCode).json({ error: error.code, message: error.message });
-    }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
-  }
-});
-
-// Salience counts — must be before /:idOrName to avoid matching "salience-counts" as a name
+// Salience counts — MUST be before /:idOrName to avoid route collision
 router.get('/salience-counts', async (req: AuthenticatedRequest, res) => {
   try {
     const counts = await memoryService.getSalienceCounts(req.userId);
@@ -60,10 +44,12 @@ router.get('/salience-counts', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
+// List all entities
 router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     const { limit, salience, context } = req.query;
@@ -81,7 +67,23 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
+  }
+});
+
+// Get entity by ID or name — MUST be after /salience-counts and / to avoid collision
+router.get('/:idOrName', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { idOrName } = req.params;
+    const entity = await memoryService.getEntityByIdOrName(req.userId, idOrName);
+    res.json(entity);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -97,7 +99,8 @@ router.patch('/:id', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -113,7 +116,8 @@ router.delete('/:idOrName', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 

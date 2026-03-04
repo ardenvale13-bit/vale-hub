@@ -23,7 +23,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -40,7 +41,8 @@ router.get('/:entity_id', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -55,7 +57,8 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 

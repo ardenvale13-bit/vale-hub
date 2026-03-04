@@ -30,6 +30,12 @@ export interface Relation {
 // UUID v4 regex for detecting if a string is a UUID
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function errMsg(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try { return JSON.stringify(error); } catch { return String(error); }
+}
+
 export class MemoryService {
   private supabase = getSupabaseClient();
 
@@ -70,7 +76,7 @@ export class MemoryService {
 
       return this.getEntity(userId, entity.id);
     } catch (error) {
-      throw new AppError(500, `Failed to create entity: ${error}`);
+      throw new AppError(500, `Failed to create entity: ${errMsg(error)}`);
     }
   }
 
@@ -107,7 +113,7 @@ export class MemoryService {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(500, `Failed to get entity: ${error}`);
+      throw new AppError(500, `Failed to get entity: ${errMsg(error)}`);
     }
   }
 
@@ -150,7 +156,7 @@ export class MemoryService {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(500, `Failed to get entity by name: ${error}`);
+      throw new AppError(500, `Failed to get entity by name: ${errMsg(error)}`);
     }
   }
 
@@ -220,7 +226,7 @@ export class MemoryService {
 
       return entityList;
     } catch (error) {
-      throw new AppError(500, `Failed to list entities: ${error}`);
+      throw new AppError(500, `Failed to list entities: ${errMsg(error)}`);
     }
   }
 
@@ -247,7 +253,7 @@ export class MemoryService {
       return this.getEntity(userId, entityId);
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(500, `Failed to update entity: ${error}`);
+      throw new AppError(500, `Failed to update entity: ${errMsg(error)}`);
     }
   }
 
@@ -261,7 +267,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
-      throw new AppError(500, `Failed to delete entity: ${error}`);
+      throw new AppError(500, `Failed to delete entity: ${errMsg(error)}`);
     }
   }
 
@@ -324,7 +330,7 @@ export class MemoryService {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(500, `Failed to add observation: ${error}`);
+      throw new AppError(500, `Failed to add observation: ${errMsg(error)}`);
     }
   }
 
@@ -348,7 +354,7 @@ export class MemoryService {
         })) || []
       );
     } catch (error) {
-      throw new AppError(500, `Failed to get observations: ${error}`);
+      throw new AppError(500, `Failed to get observations: ${errMsg(error)}`);
     }
   }
 
@@ -361,7 +367,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
-      throw new AppError(500, `Failed to delete observation: ${error}`);
+      throw new AppError(500, `Failed to delete observation: ${errMsg(error)}`);
     }
   }
 
@@ -400,7 +406,7 @@ export class MemoryService {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(500, `Failed to create relation: ${error}`);
+      throw new AppError(500, `Failed to create relation: ${errMsg(error)}`);
     }
   }
 
@@ -436,7 +442,7 @@ export class MemoryService {
         })) || []
       );
     } catch (error) {
-      throw new AppError(500, `Failed to get relations: ${error}`);
+      throw new AppError(500, `Failed to get relations: ${errMsg(error)}`);
     }
   }
 
@@ -449,7 +455,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
-      throw new AppError(500, `Failed to delete relation: ${error}`);
+      throw new AppError(500, `Failed to delete relation: ${errMsg(error)}`);
     }
   }
 
@@ -486,7 +492,7 @@ export class MemoryService {
 
       return entityList;
     } catch (error) {
-      throw new AppError(500, `Failed to search entities: ${error}`);
+      throw new AppError(500, `Failed to search entities: ${errMsg(error)}`);
     }
   }
 
@@ -519,7 +525,7 @@ export class MemoryService {
 
       return counts;
     } catch (error) {
-      throw new AppError(500, `Failed to get salience counts: ${error}`);
+      throw new AppError(500, `Failed to get salience counts: ${errMsg(error)}`);
     }
   }
 
@@ -567,7 +573,7 @@ export class MemoryService {
 
       return contextBlock.slice(0, maxLength);
     } catch (error) {
-      throw new AppError(500, `Failed to generate context block: ${error}`);
+      throw new AppError(500, `Failed to generate context block: ${errMsg(error)}`);
     }
   }
 }
