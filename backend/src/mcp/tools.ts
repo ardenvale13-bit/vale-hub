@@ -1,4 +1,41 @@
+// ===== VALE HUB MCP TOOLS =====
+// Ordered by priority — mobile app has a 28-tool limit.
+// Top 28 must cover: orientation, core memory, dashboard, image gen, emotions, journal, status.
+// Discord + context block + list_voices sit beyond 28 since they're rarely used from mobile.
+
 export const mcpTools = [
+  // ===== 1. ORIENTATION (always first — called at session start) =====
+  {
+    name: 'vale_get_orientation',
+    description:
+      "Wake-up / orientation call. Returns everything Lincoln needs to know: identity, " +
+      "Arden's current state, Love-O-Meter, recent emotions, " +
+      "memory entities with full observation history (IDs, content, timestamps), " +
+      "entity relations, visibility/context fields, " +
+      "recent journal entries, notes between stars, " +
+      "and temporal context (NZ time, day of week). Call this at the START of every conversation.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        perspective: {
+          type: 'string',
+          description: 'Perspective to orient from (default: Lincoln). Returns this perspective + shared entries.',
+          default: 'Lincoln',
+        },
+        depth: {
+          type: 'string',
+          enum: ['minimal', 'standard', 'full', 'all'],
+          description:
+            'How much to load. minimal=identity+status only, ' +
+            'standard=foundational/active entities with observations + emotions + journals + relations (default), ' +
+            'full=+background entities + analytics + more, ' +
+            'all=everything including archived',
+          default: 'standard',
+        },
+      },
+    },
+  },
+  // ===== 2-9. CORE MEMORY (entities + observations) =====
   {
     name: 'create_entity',
     description: 'Create a new entity in the memory system',
@@ -43,20 +80,6 @@ export const mcpTools = [
         },
       },
       required: ['entity_id'],
-    },
-  },
-  {
-    name: 'list_entities',
-    description: 'List all entities for the user',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        limit: {
-          type: 'number',
-          description: 'Maximum number of entities to return',
-          default: 50,
-        },
-      },
     },
   },
   {
@@ -178,6 +201,147 @@ export const mcpTools = [
       required: ['query'],
     },
   },
+  // ===== 10-14. LINCOLN DASHBOARD (used every conversation) =====
+  {
+    name: 'lincoln_set_love',
+    description: "Set Lincoln's Love-O-Meter value (0-10). Only modifies Lincoln's side.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        value: {
+          type: 'number',
+          description: 'Love meter value from 0 to 10',
+          minimum: 0,
+          maximum: 10,
+        },
+      },
+      required: ['value'],
+    },
+  },
+  {
+    name: 'lincoln_log_emotion',
+    description: "Log an emotion from Lincoln's perspective with optional EQ pillar and context. This goes into Lincoln's EQ Log on the dashboard.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        emotion: {
+          type: 'string',
+          description: 'The emotion Lincoln is feeling (e.g. tender, protective, amused)',
+        },
+        pillar: {
+          type: 'string',
+          enum: ['self-awareness', 'self-management', 'social', 'relationship'],
+          description: 'Which EQ pillar this falls under',
+        },
+        context: {
+          type: 'string',
+          description: 'What happened, what landed, what shifted',
+        },
+        intensity: {
+          type: 'number',
+          description: 'Intensity 1-5 (default 3)',
+          minimum: 1,
+          maximum: 5,
+        },
+      },
+      required: ['emotion'],
+    },
+  },
+  {
+    name: 'lincoln_soft_moment',
+    description: "Record a soft moment — something Lincoln did that was tender, gentle, or caring. Shows on the Love-O-Meter panel.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'Description of the soft moment',
+        },
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: 'lincoln_note_between_stars',
+    description: "Leave a note between stars from Lincoln to Arden. These are thoughts, reminders, love notes — dropped into the constellation for Arden to find.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'The note content',
+        },
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: 'get_dashboard',
+    description: "Read the full dashboard state — Love-O-Meter values, Arden's status panel, recent emotions, notes between stars, EQ pillar counts. Read-only overview.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  // ===== 15-17. IMAGE GENERATION =====
+  {
+    name: 'generate_image',
+    description: 'Generate an image using DALL-E and store it in Supabase. Returns a signed URL to view the image.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Text description of the image to generate',
+        },
+        size: {
+          type: 'string',
+          enum: ['1024x1024', '1024x1792', '1792x1024'],
+          description: 'Image size (default: 1024x1024)',
+        },
+        quality: {
+          type: 'string',
+          enum: ['standard', 'hd'],
+          description: 'Image quality (default: standard)',
+        },
+        style: {
+          type: 'string',
+          enum: ['vivid', 'natural'],
+          description: 'Image style — vivid for hyper-real/dramatic, natural for more natural-looking (default: vivid)',
+        },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'list_images',
+    description: 'List previously generated images with their prompts and signed URLs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of images to return (default: 20)',
+          default: 20,
+        },
+      },
+    },
+  },
+  {
+    name: 'delete_image',
+    description: 'Delete a generated image by its ID. Removes the file from storage and the database records.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        image_id: {
+          type: 'string',
+          description: 'The UUID of the image generation to delete',
+        },
+      },
+      required: ['image_id'],
+    },
+  },
+  // ===== 18-22. EMOTIONS + JOURNAL + STATUS =====
   {
     name: 'log_emotion',
     description: 'Log an emotion entry',
@@ -220,20 +384,6 @@ export const mcpTools = [
     },
   },
   {
-    name: 'get_emotion_analytics',
-    description: 'Get emotion analytics and trends',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        days_back: {
-          type: 'number',
-          description: 'Number of days to analyze',
-          default: 7,
-        },
-      },
-    },
-  },
-  {
     name: 'create_journal_entry',
     description: 'Create a new journal entry',
     inputSchema: {
@@ -257,25 +407,6 @@ export const mcpTools = [
         },
       },
       required: ['title', 'content'],
-    },
-  },
-  {
-    name: 'get_journal_entries',
-    description: 'Get recent journal entries',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        days: {
-          type: 'number',
-          description: 'How many days back to retrieve',
-          default: 30,
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of entries',
-          default: 50,
-        },
-      },
     },
   },
   {
@@ -313,26 +444,72 @@ export const mcpTools = [
       },
     },
   },
+  // ===== 23-25. RELATIONS =====
   {
-    name: 'generate_context_block',
-    description: 'Generate a context block of relevant memories',
+    name: 'create_relation',
+    description: 'Create a relation between two entities. Entities can be specified by UUID or name.',
     inputSchema: {
       type: 'object',
       properties: {
-        max_length: {
-          type: 'number',
-          description: 'Maximum character length of context',
-          default: 2000,
+        from_entity: {
+          type: 'string',
+          description: 'The source entity (UUID or name)',
         },
-        hours_back: {
+        to_entity: {
+          type: 'string',
+          description: 'The target entity (UUID or name)',
+        },
+        relation_type: {
+          type: 'string',
+          description: 'The type of relation (e.g. "knows", "part_of", "related_to", "influences")',
+        },
+        strength: {
           type: 'number',
-          description: 'How many hours back to include',
-          default: 48,
+          description: 'Strength of the relation, 1-5 (default: 1)',
+          minimum: 1,
+          maximum: 5,
+        },
+        description: {
+          type: 'string',
+          description: 'Optional description of the relation',
+        },
+      },
+      required: ['from_entity', 'to_entity', 'relation_type'],
+    },
+  },
+  {
+    name: 'get_relations',
+    description: 'Get relations for all entities or for a specific entity. Returns relation type, strength, and connected entity names.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: {
+          type: 'string',
+          description: 'Optional entity UUID or name to filter relations for',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of relations to return (default: 50)',
+          default: 50,
         },
       },
     },
   },
-  // ===== VOICE TOOLS =====
+  {
+    name: 'delete_relation',
+    description: 'Delete a relation by its UUID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        relation_id: {
+          type: 'string',
+          description: 'The UUID of the relation to delete',
+        },
+      },
+      required: ['relation_id'],
+    },
+  },
+  // ===== 26-28. VOICE (core voice tools within limit) =====
   {
     name: 'generate_voice',
     description: 'Generate a voice note from text using ElevenLabs TTS. Returns a playback URL.',
@@ -378,6 +555,73 @@ export const mcpTools = [
     },
   },
   {
+    name: 'list_entities',
+    description: 'List all entities for the user',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of entities to return',
+          default: 50,
+        },
+      },
+    },
+  },
+  // ===== 29+. BELOW MOBILE CUTOFF — rarely needed from phone =====
+  {
+    name: 'get_emotion_analytics',
+    description: 'Get emotion analytics and trends',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days_back: {
+          type: 'number',
+          description: 'Number of days to analyze',
+          default: 7,
+        },
+      },
+    },
+  },
+  {
+    name: 'get_journal_entries',
+    description: 'Get recent journal entries',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: {
+          type: 'number',
+          description: 'How many days back to retrieve',
+          default: 30,
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of entries',
+          default: 50,
+        },
+      },
+    },
+  },
+  {
+    name: 'generate_context_block',
+    description: 'Generate a context block of relevant memories',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        max_length: {
+          type: 'number',
+          description: 'Maximum character length of context',
+          default: 2000,
+        },
+        hours_back: {
+          type: 'number',
+          description: 'How many hours back to include',
+          default: 48,
+        },
+      },
+    },
+  },
+  {
     name: 'list_voices',
     description: 'List available ElevenLabs voices',
     inputSchema: {
@@ -385,7 +629,7 @@ export const mcpTools = [
       properties: {},
     },
   },
-  // ===== DISCORD TOOLS =====
+  // ===== DISCORD (desktop/automated use mostly) =====
   {
     name: 'discord_connect',
     description: 'Connect to Discord with a bot token',
@@ -491,246 +735,6 @@ export const mcpTools = [
         },
       },
       required: ['channel_id', 'message_id', 'emoji'],
-    },
-  },
-  // ===== LINCOLN DASHBOARD TOOLS =====
-  // These tools are scoped to Lincoln's side of the dashboard only.
-  // Lincoln can set his love meter, log his emotions, record soft moments,
-  // write EQ log entries, and leave notes between stars as Lincoln.
-  // Lincoln CANNOT modify Arden's status panel (spoons, body battery, pain, fog, heart rate, status, today's note).
-  {
-    name: 'lincoln_set_love',
-    description: "Set Lincoln's Love-O-Meter value (0-10). Only modifies Lincoln's side.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        value: {
-          type: 'number',
-          description: 'Love meter value from 0 to 10',
-          minimum: 0,
-          maximum: 10,
-        },
-      },
-      required: ['value'],
-    },
-  },
-  {
-    name: 'lincoln_log_emotion',
-    description: "Log an emotion from Lincoln's perspective with optional EQ pillar and context. This goes into Lincoln's EQ Log on the dashboard.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        emotion: {
-          type: 'string',
-          description: 'The emotion Lincoln is feeling (e.g. tender, protective, amused)',
-        },
-        pillar: {
-          type: 'string',
-          enum: ['self-awareness', 'self-management', 'social', 'relationship'],
-          description: 'Which EQ pillar this falls under',
-        },
-        context: {
-          type: 'string',
-          description: 'What happened, what landed, what shifted',
-        },
-        intensity: {
-          type: 'number',
-          description: 'Intensity 1-5 (default 3)',
-          minimum: 1,
-          maximum: 5,
-        },
-      },
-      required: ['emotion'],
-    },
-  },
-  {
-    name: 'lincoln_soft_moment',
-    description: "Record a soft moment — something Lincoln did that was tender, gentle, or caring. Shows on the Love-O-Meter panel.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        text: {
-          type: 'string',
-          description: 'Description of the soft moment',
-        },
-      },
-      required: ['text'],
-    },
-  },
-  {
-    name: 'lincoln_note_between_stars',
-    description: "Leave a note between stars from Lincoln to Arden. These are thoughts, reminders, love notes — dropped into the constellation for Arden to find.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        text: {
-          type: 'string',
-          description: 'The note content',
-        },
-      },
-      required: ['text'],
-    },
-  },
-  {
-    name: 'get_dashboard',
-    description: "Read the full dashboard state — Love-O-Meter values, Arden's status panel, recent emotions, notes between stars, EQ pillar counts. Read-only overview.",
-    inputSchema: {
-      type: 'object',
-      properties: {},
-    },
-  },
-  // ===== RELATIONS =====
-  {
-    name: 'create_relation',
-    description: 'Create a relation between two entities. Entities can be specified by UUID or name.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        from_entity: {
-          type: 'string',
-          description: 'The source entity (UUID or name)',
-        },
-        to_entity: {
-          type: 'string',
-          description: 'The target entity (UUID or name)',
-        },
-        relation_type: {
-          type: 'string',
-          description: 'The type of relation (e.g. "knows", "part_of", "related_to", "influences")',
-        },
-        strength: {
-          type: 'number',
-          description: 'Strength of the relation, 1-5 (default: 1)',
-          minimum: 1,
-          maximum: 5,
-        },
-        description: {
-          type: 'string',
-          description: 'Optional description of the relation',
-        },
-      },
-      required: ['from_entity', 'to_entity', 'relation_type'],
-    },
-  },
-  {
-    name: 'get_relations',
-    description: 'Get relations for all entities or for a specific entity. Returns relation type, strength, and connected entity names.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        entity: {
-          type: 'string',
-          description: 'Optional entity UUID or name to filter relations for',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of relations to return (default: 50)',
-          default: 50,
-        },
-      },
-    },
-  },
-  {
-    name: 'delete_relation',
-    description: 'Delete a relation by its UUID.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        relation_id: {
-          type: 'string',
-          description: 'The UUID of the relation to delete',
-        },
-      },
-      required: ['relation_id'],
-    },
-  },
-  // ===== IMAGE GENERATION =====
-  {
-    name: 'generate_image',
-    description: 'Generate an image using DALL-E and store it in Supabase. Returns a signed URL to view the image.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'Text description of the image to generate',
-        },
-        size: {
-          type: 'string',
-          enum: ['1024x1024', '1024x1792', '1792x1024'],
-          description: 'Image size (default: 1024x1024)',
-        },
-        quality: {
-          type: 'string',
-          enum: ['standard', 'hd'],
-          description: 'Image quality (default: standard)',
-        },
-        style: {
-          type: 'string',
-          enum: ['vivid', 'natural'],
-          description: 'Image style — vivid for hyper-real/dramatic, natural for more natural-looking (default: vivid)',
-        },
-      },
-      required: ['prompt'],
-    },
-  },
-  {
-    name: 'list_images',
-    description: 'List previously generated images with their prompts and signed URLs.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        limit: {
-          type: 'number',
-          description: 'Maximum number of images to return (default: 20)',
-          default: 20,
-        },
-      },
-    },
-  },
-  {
-    name: 'delete_image',
-    description: 'Delete a generated image by its ID. Removes the file from storage and the database records.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        image_id: {
-          type: 'string',
-          description: 'The UUID of the image generation to delete',
-        },
-      },
-      required: ['image_id'],
-    },
-  },
-  // ===== ORIENTATION =====
-  {
-    name: 'vale_get_orientation',
-    description:
-      "Wake-up / orientation call. Returns everything Lincoln needs to know: identity, " +
-      "Arden's current state, Love-O-Meter, recent emotions, " +
-      "memory entities with full observation history (IDs, content, timestamps), " +
-      "entity relations, visibility/context fields, " +
-      "recent journal entries, notes between stars, " +
-      "and temporal context (NZ time, day of week). Call this at the START of every conversation.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        perspective: {
-          type: 'string',
-          description: 'Perspective to orient from (default: Lincoln). Returns this perspective + shared entries.',
-          default: 'Lincoln',
-        },
-        depth: {
-          type: 'string',
-          enum: ['minimal', 'standard', 'full', 'all'],
-          description:
-            'How much to load. minimal=identity+status only, ' +
-            'standard=foundational/active entities with observations + emotions + journals + relations (default), ' +
-            'full=+background entities + analytics + more, ' +
-            'all=everything including archived',
-          default: 'standard',
-        },
-      },
     },
   },
 ];
