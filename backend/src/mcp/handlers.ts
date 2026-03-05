@@ -203,6 +203,51 @@ export async function handleToolCall(
         return await discordService.reactToMessage(channel_id, message_id, emoji);
       }
 
+      // ===== RELATION TOOLS =====
+      case 'create_relation': {
+        const { from_entity, to_entity, relation_type, strength, description } = toolInput;
+
+        // Resolve entity IDs from names or UUIDs
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        let fromId = from_entity;
+        let toId = to_entity;
+
+        if (!UUID_REGEX.test(from_entity)) {
+          const entity = await memoryService.getEntityByIdOrName(userId, from_entity);
+          fromId = entity.id;
+        }
+        if (!UUID_REGEX.test(to_entity)) {
+          const entity = await memoryService.getEntityByIdOrName(userId, to_entity);
+          toId = entity.id;
+        }
+
+        return await memoryService.createRelation(userId, fromId, toId, relation_type, strength, description);
+      }
+
+      case 'get_relations': {
+        const { entity, limit } = toolInput;
+        let entityId: string | undefined;
+
+        if (entity) {
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (UUID_REGEX.test(entity)) {
+            entityId = entity;
+          } else {
+            const resolved = await memoryService.getEntityByIdOrName(userId, entity);
+            entityId = resolved.id;
+          }
+        }
+
+        return await memoryService.getRelations(userId, entityId, limit || 50);
+      }
+
+      case 'delete_relation': {
+        const { relation_id } = toolInput;
+        await memoryService.deleteRelation(relation_id);
+        return { success: true, message: `Relation ${relation_id} deleted` };
+      }
+
       // ===== LINCOLN DASHBOARD TOOLS =====
       case 'lincoln_set_love': {
         const { value } = toolInput;

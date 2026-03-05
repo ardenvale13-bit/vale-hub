@@ -497,13 +497,80 @@ export const mcpTools = [
       properties: {},
     },
   },
+  // ===== RELATIONS =====
+  {
+    name: 'create_relation',
+    description: 'Create a relation between two entities. Entities can be specified by UUID or name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        from_entity: {
+          type: 'string',
+          description: 'The source entity (UUID or name)',
+        },
+        to_entity: {
+          type: 'string',
+          description: 'The target entity (UUID or name)',
+        },
+        relation_type: {
+          type: 'string',
+          description: 'The type of relation (e.g. "knows", "part_of", "related_to", "influences")',
+        },
+        strength: {
+          type: 'number',
+          description: 'Strength of the relation, 1-5 (default: 1)',
+          minimum: 1,
+          maximum: 5,
+        },
+        description: {
+          type: 'string',
+          description: 'Optional description of the relation',
+        },
+      },
+      required: ['from_entity', 'to_entity', 'relation_type'],
+    },
+  },
+  {
+    name: 'get_relations',
+    description: 'Get relations for all entities or for a specific entity. Returns relation type, strength, and connected entity names.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: {
+          type: 'string',
+          description: 'Optional entity UUID or name to filter relations for',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of relations to return (default: 50)',
+          default: 50,
+        },
+      },
+    },
+  },
+  {
+    name: 'delete_relation',
+    description: 'Delete a relation by its UUID.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        relation_id: {
+          type: 'string',
+          description: 'The UUID of the relation to delete',
+        },
+      },
+      required: ['relation_id'],
+    },
+  },
   // ===== ORIENTATION =====
   {
     name: 'vale_get_orientation',
     description:
-      "Wake-up / orientation call. Returns everything Lincoln needs to know: identity (who I am), " +
-      "Arden's current state (spoons, pain, fog, battery, mood), Love-O-Meter, recent emotions, " +
-      "key memory entities (foundational/active), recent journal entries, notes between stars, " +
+      "Wake-up / orientation call. Returns everything Lincoln needs to know: identity, " +
+      "Arden's current state, Love-O-Meter, recent emotions, " +
+      "memory entities with full observation history (IDs, content, timestamps), " +
+      "entity relations, visibility/context fields, " +
+      "recent journal entries, notes between stars, " +
       "and temporal context (NZ time, day of week). Call this at the START of every conversation.",
     inputSchema: {
       type: 'object',
@@ -517,8 +584,10 @@ export const mcpTools = [
           type: 'string',
           enum: ['minimal', 'standard', 'full', 'all'],
           description:
-            'How much to load. minimal=identity+status only, standard=+active entities/emotions/journals (default), ' +
-            'full=+analytics+more entities, all=everything',
+            'How much to load. minimal=identity+status only, ' +
+            'standard=foundational/active entities with observations + emotions + journals + relations (default), ' +
+            'full=+background entities + analytics + more, ' +
+            'all=everything including archived',
           default: 'standard',
         },
       },

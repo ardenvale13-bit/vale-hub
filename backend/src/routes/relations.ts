@@ -7,7 +7,7 @@ const router = Router();
 
 router.post('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { from_entity_id, to_entity_id, relation_type, metadata } = req.body;
+    const { from_entity_id, to_entity_id, relation_type, strength, description } = req.body;
 
     if (!from_entity_id || !to_entity_id || !relation_type) {
       throw new AppError(
@@ -21,7 +21,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
       from_entity_id,
       to_entity_id,
       relation_type,
-      metadata,
+      strength,
+      description,
     );
 
     res.status(201).json(relation);
@@ -29,7 +30,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -49,7 +51,8 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 
@@ -64,7 +67,8 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     if (error instanceof AppError) {
       return res.status(error.statusCode).json({ error: error.code, message: error.message });
     }
-    res.status(500).json({ error: 'Internal Server Error', message: String(error) });
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
   }
 });
 

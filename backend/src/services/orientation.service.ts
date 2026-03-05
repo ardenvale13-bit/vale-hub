@@ -4,6 +4,39 @@ import { emotionalService } from './emotional.service.js';
 
 const supabase = getSupabaseClient();
 
+export interface OrientationObservation {
+  id: string;
+  content: string;
+  tags?: string[];
+  created_at: string;
+}
+
+export interface OrientationEntity {
+  id: string;
+  name: string;
+  entity_type: string;
+  salience: string;
+  visibility: string;
+  context: string;
+  description?: string;
+  observation_count: number;
+  observations: OrientationObservation[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrientationRelation {
+  id: string;
+  from_entity: string;       // entity name
+  from_entity_id: string;
+  to_entity: string;         // entity name
+  to_entity_id: string;
+  relation_type: string;
+  strength: number;
+  description?: string;
+  created_at: string;
+}
+
 export interface OrientationResult {
   timestamp: string;
   perspective: string;
@@ -29,13 +62,8 @@ export interface OrientationResult {
   };
 
   memory: {
-    entities: Array<{
-      name: string;
-      entity_type: string;
-      salience: string;
-      observation_count: number;
-      recent_observations: string[];
-    }>;
+    entities: OrientationEntity[];
+    relations: OrientationRelation[];
     entity_count: number;
   };
 
@@ -94,7 +122,7 @@ export class OrientationService {
       identity: identityBlock,
       status: statusBlock,
       emotional: { recent: [] },
-      memory: { entities: [], entity_count: 0 },
+      memory: { entities: [], relations: [], entity_count: 0 },
       journal: { recent_entries: [], notes_between_stars: [] },
       temporal: {
         current_time_nz: nzTime,
@@ -111,17 +139,18 @@ export class OrientationService {
     const journalDays = depth === 'all' ? 30 : depth === 'full' ? 14 : 7;
     const journalLimit = depth === 'all' ? 50 : depth === 'full' ? 15 : 5;
 
-    const [emotions, journals, starNotes, entities] = await Promise.all([
+    const [emotions, journals, starNotes, entitiesResult, relations] = await Promise.all([
       this.getRecentEmotions(userId, emotionHours),
       this.getRecentJournals(userId, journalDays, journalLimit),
       this.getStarNotes(userId),
       this.getEntitiesBySalience(userId, depth),
+      this.getRelations(userId, depth),
     ]);
 
     result.emotional.recent = emotions;
     result.journal.recent_entries = journals;
     result.journal.notes_between_stars = starNotes;
-    result.memory = entities;
+    result.memory = { ...entitiesResult, relations };
 
     // Full/All: add analytics
     if (depth === 'full' || depth === 'all') {
@@ -261,7 +290,7 @@ export class OrientationService {
   private async getEntitiesBySalience(
     userId: string,
     depth: Depth,
-  ): Promise<OrientationResult['memory']> {
+  ): Promise<{ entities: OrientationEntity[]; entity_count: number }> {
     try {
       // Determine which salience levels to include
       let salienceLevels: string[];
@@ -274,13 +303,15 @@ export class OrientationService {
         salienceLevels = ['foundational', 'active-immediate'];
       }
 
+      const entityLimit = depth === 'all' ? 200 : depth === 'full' ? 100 : 50;
+
       const { data: allEntities } = await supabase
         .from('entities')
         .select('*')
         .eq('user_id', userId)
         .in('salience', salienceLevels)
         .order('updated_at', { ascending: false })
-        .limit(depth === 'all' ? 200 : depth === 'full' ? 100 : 50);
+        .limit(entityLimit);
 
       // Get total count
       const { count } = await supabase
@@ -288,21 +319,43 @@ export class OrientationService {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
 
-      const entities = [];
+      // Observation limits per entity based on depth
+      // standard: 10 per entity, full: 25, all: unlimited (200 cap)
+      const obsLimit = depth === 'all' ? 200 : depth === 'full' ? 25 : 10;
+
+      const entities: OrientationEntity[] = [];
       for (const entity of allEntities || []) {
+        // Fetch full observations with IDs, tags, timestamps
         const { data: obs } = await supabase
           .from('observations')
-          .select('content')
+          .select('id, content, tags, created_at')
           .eq('entity_id', entity.id)
-          .order('created_at', { ascending: false })
-          .limit(depth === 'all' ? 10 : 3);
+          .order('created_at', { ascending: true })
+          .limit(obsLimit);
+
+        // Also get total observation count (may exceed limit)
+        const { count: obsCount } = await supabase
+          .from('observations')
+          .select('*', { count: 'exact', head: true })
+          .eq('entity_id', entity.id);
 
         entities.push({
+          id: entity.id,
           name: entity.name,
           entity_type: entity.entity_type,
           salience: entity.salience || 'background',
-          observation_count: (obs || []).length,
-          recent_observations: (obs || []).map((o: any) => o.content),
+          visibility: entity.visibility || 'shared',
+          context: entity.context || 'default',
+          description: entity.description || undefined,
+          observation_count: obsCount || 0,
+          observations: (obs || []).map((o: any) => ({
+            id: o.id,
+            content: o.content,
+            tags: o.tags || [],
+            created_at: o.created_at,
+          })),
+          created_at: entity.created_at,
+          updated_at: entity.updated_at,
         });
       }
 
@@ -312,6 +365,57 @@ export class OrientationService {
       };
     } catch {
       return { entities: [], entity_count: 0 };
+    }
+  }
+
+  private async getRelations(
+    userId: string,
+    depth: Depth,
+  ): Promise<OrientationRelation[]> {
+    try {
+      if (depth === 'minimal') return [];
+
+      const limit = depth === 'all' ? 200 : depth === 'full' ? 50 : 20;
+
+      const { data: relations } = await supabase
+        .from('relations')
+        .select('id, from_entity_id, to_entity_id, relation_type, strength, description, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (!relations || relations.length === 0) return [];
+
+      // Resolve entity names for readability
+      const entityIds = new Set<string>();
+      for (const r of relations) {
+        entityIds.add(r.from_entity_id);
+        entityIds.add(r.to_entity_id);
+      }
+
+      const { data: entityNames } = await supabase
+        .from('entities')
+        .select('id, name')
+        .in('id', Array.from(entityIds));
+
+      const nameMap: Record<string, string> = {};
+      for (const e of entityNames || []) {
+        nameMap[e.id] = e.name;
+      }
+
+      return relations.map((r: any) => ({
+        id: r.id,
+        from_entity: nameMap[r.from_entity_id] || 'unknown',
+        from_entity_id: r.from_entity_id,
+        to_entity: nameMap[r.to_entity_id] || 'unknown',
+        to_entity_id: r.to_entity_id,
+        relation_type: r.relation_type,
+        strength: r.strength || 1,
+        description: r.description || undefined,
+        created_at: r.created_at,
+      }));
+    } catch {
+      return [];
     }
   }
 }

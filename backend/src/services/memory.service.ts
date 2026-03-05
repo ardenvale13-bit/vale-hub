@@ -23,7 +23,8 @@ export interface Relation {
   from_entity_id: string;
   to_entity_id: string;
   relation_type: string;
-  metadata?: Record<string, any>;
+  strength: number;
+  description?: string;
   created_at: string;
 }
 
@@ -440,22 +441,36 @@ export class MemoryService {
     fromEntityId: string,
     toEntityId: string,
     relationType: string,
-    metadata?: Record<string, any>,
+    strength?: number,
+    description?: string,
   ): Promise<Relation> {
     try {
+      if (!relationType || !relationType.trim()) {
+        throw new AppError(400, 'Relation type cannot be empty');
+      }
+
+      // Validate strength if provided (1-5)
+      const validStrength = strength ? Math.min(5, Math.max(1, Math.round(strength))) : 1;
+
       const { data: relation, error: relError } = await this.supabase
         .from('relations')
         .insert({
           user_id: userId,
           from_entity_id: fromEntityId,
           to_entity_id: toEntityId,
-          relation_type: relationType,
-          metadata,
+          relation_type: relationType.trim(),
+          strength: validStrength,
+          description: description?.trim() || undefined,
         })
         .select('*')
         .single();
 
-      if (relError) throw relError;
+      if (relError) {
+        if (relError.code === '23505') {
+          throw new AppError(409, `Relation already exists between these entities with type '${relationType}'`);
+        }
+        throw relError;
+      }
       if (!relation) {
         throw new AppError(500, 'Failed to create relation');
       }
@@ -465,7 +480,8 @@ export class MemoryService {
         from_entity_id: relation.from_entity_id,
         to_entity_id: relation.to_entity_id,
         relation_type: relation.relation_type,
-        metadata: relation.metadata,
+        strength: relation.strength,
+        description: relation.description,
         created_at: relation.created_at,
       };
     } catch (error) {
@@ -501,7 +517,8 @@ export class MemoryService {
           from_entity_id: r.from_entity_id,
           to_entity_id: r.to_entity_id,
           relation_type: r.relation_type,
-          metadata: r.metadata,
+          strength: r.strength || 1,
+          description: r.description,
           created_at: r.created_at,
         })) || []
       );
