@@ -114,6 +114,7 @@ export class MemoryService {
 
       return this.getEntity(userId, entity.id);
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to create entity: ${errMsg(error)}`);
     }
   }
@@ -268,6 +269,7 @@ export class MemoryService {
 
       return entityList;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to list entities: ${errMsg(error)}`);
     }
   }
@@ -316,6 +318,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to delete entity: ${errMsg(error)}`);
     }
   }
@@ -413,6 +416,7 @@ export class MemoryService {
         })) || []
       );
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to get observations: ${errMsg(error)}`);
     }
   }
@@ -426,6 +430,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to delete observation: ${errMsg(error)}`);
     }
   }
@@ -501,6 +506,7 @@ export class MemoryService {
         })) || []
       );
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to get relations: ${errMsg(error)}`);
     }
   }
@@ -514,6 +520,7 @@ export class MemoryService {
 
       if (delError) throw delError;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to delete relation: ${errMsg(error)}`);
     }
   }
@@ -551,6 +558,7 @@ export class MemoryService {
 
       return entityList;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to search entities: ${errMsg(error)}`);
     }
   }
@@ -584,6 +592,7 @@ export class MemoryService {
 
       return counts;
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to get salience counts: ${errMsg(error)}`);
     }
   }
@@ -632,6 +641,7 @@ export class MemoryService {
 
       return contextBlock.slice(0, maxLength);
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(500, `Failed to generate context block: ${errMsg(error)}`);
     }
   }

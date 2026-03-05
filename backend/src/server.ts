@@ -142,11 +142,15 @@ async function handleMcpMessage(body: any): Promise<any> {
           content: [{ type: 'text', text: JSON.stringify(result) }],
         },
       };
-    } catch (error) {
+    } catch (error: any) {
+      const message = error instanceof Error ? error.message : JSON.stringify(error);
       return {
         jsonrpc: '2.0',
         id,
-        error: { code: -32603, message: String(error) },
+        result: {
+          content: [{ type: 'text', text: JSON.stringify({ error: message }) }],
+          isError: true,
+        },
       };
     }
   }
