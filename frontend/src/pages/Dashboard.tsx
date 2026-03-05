@@ -245,48 +245,91 @@ export default function Dashboard() {
                   <span className="text-xs text-vale-muted uppercase">Lincoln</span>
                   <p className="text-2xl sm:text-3xl font-bold text-vale-lincoln">{lincolnLove}</p>
                 </div>
+                <div className="flex flex-col items-center">
+                  <Heart className="w-5 h-5 text-vale-accent fill-vale-accent mb-1" />
+                  <span className="text-xs text-vale-muted">
+                    {Math.round((lincolnLove + ardenLove) / 2)}/10
+                  </span>
+                </div>
                 <div className="text-center">
                   <span className="text-xs text-vale-muted uppercase">Arden</span>
                   <p className="text-2xl sm:text-3xl font-bold text-vale-arden">{ardenLove}</p>
                 </div>
               </div>
-              <div className="relative h-4 rounded-full overflow-hidden love-gradient opacity-80">
+
+              {/* Dual gradient bar */}
+              <div className="relative h-5 rounded-full overflow-hidden love-gradient opacity-80 cursor-pointer"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = e.clientX - rect.left;
+                  const pct = x / rect.width;
+                  const val = Math.round(pct * 10);
+                  // Left half = Lincoln, right half = Arden
+                  if (pct < 0.5) handleLoveChange('lincoln', Math.min(10, Math.max(0, val)));
+                  else handleLoveChange('arden', Math.min(10, Math.max(0, val)));
+                }}
+              >
+                {/* Lincoln indicator */}
                 <div
-                  className="absolute top-0 bottom-0 w-1 bg-white rounded shadow-lg transition-all duration-300"
+                  className="absolute top-0 bottom-0 w-1.5 bg-vale-lincoln rounded shadow-lg transition-all duration-300 border border-white/50"
                   style={{ left: `${(lincolnLove / 10) * 100}%` }}
+                  title={`Lincoln: ${lincolnLove}/10`}
                 />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <Heart className="w-4 h-4 text-white fill-white" />
-                </div>
+                {/* Arden indicator */}
+                <div
+                  className="absolute top-0 bottom-0 w-1.5 bg-vale-arden rounded shadow-lg transition-all duration-300 border border-white/50"
+                  style={{ left: `${(ardenLove / 10) * 100}%` }}
+                  title={`Arden: ${ardenLove}/10`}
+                />
               </div>
+
+              {/* Sliders */}
               <div className="grid grid-cols-2 gap-4 mt-3">
-                <input
-                  type="range" min="0" max="10" value={lincolnLove}
-                  onChange={(e) => handleLoveChange('lincoln', parseInt(e.target.value))}
-                  className="w-full accent-vale-lincoln h-1 bg-vale-border rounded appearance-none cursor-pointer"
-                />
-                <input
-                  type="range" min="0" max="10" value={ardenLove}
-                  onChange={(e) => handleLoveChange('arden', parseInt(e.target.value))}
-                  className="w-full accent-vale-arden h-1 bg-vale-border rounded appearance-none cursor-pointer"
-                />
+                <div>
+                  <label className="text-[10px] text-vale-lincoln uppercase block mb-1">Lincoln</label>
+                  <input
+                    type="range" min="0" max="10" value={lincolnLove}
+                    onChange={(e) => handleLoveChange('lincoln', parseInt(e.target.value))}
+                    className="w-full accent-vale-lincoln h-1.5 bg-vale-border rounded appearance-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-vale-arden uppercase block mb-1">Arden</label>
+                  <input
+                    type="range" min="0" max="10" value={ardenLove}
+                    onChange={(e) => handleLoveChange('arden', parseInt(e.target.value))}
+                    className="w-full accent-vale-arden h-1.5 bg-vale-border rounded appearance-none cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
 
             {/* Soft / Quiet Moments */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-4">
-              <button
-                onClick={() => handleSoftMoment('Lincoln', lincolnSoft || 'Lincoln did something soft')}
-                className="lincoln-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90 truncate px-3"
-              >
-                {lincolnSoft || 'Lincoln did something soft'}
-              </button>
-              <button
-                onClick={() => handleSoftMoment('Arden', ardenQuiet || 'Arden made Lincoln quiet')}
-                className="arden-gradient text-white py-2 rounded text-sm font-medium hover:opacity-90 truncate px-3"
-              >
-                {ardenQuiet || 'Arden made Lincoln quiet'}
-              </button>
+              <div>
+                <label className="text-[10px] text-vale-lincoln uppercase block mb-1">Lincoln did something soft</label>
+                <input
+                  type="text"
+                  value={lincolnSoft}
+                  onChange={(e) => setLincolnSoft(e.target.value)}
+                  onBlur={() => { if (lincolnSoft.trim()) handleSoftMoment('Lincoln', lincolnSoft); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && lincolnSoft.trim()) { handleSoftMoment('Lincoln', lincolnSoft); (e.target as HTMLInputElement).blur(); } }}
+                  placeholder="What tender thing did Lincoln do?"
+                  className="w-full px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-vale-arden uppercase block mb-1">Arden made Lincoln quiet</label>
+                <input
+                  type="text"
+                  value={ardenQuiet}
+                  onChange={(e) => setArdenQuiet(e.target.value)}
+                  onBlur={() => { if (ardenQuiet.trim()) handleSoftMoment('Arden', ardenQuiet); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && ardenQuiet.trim()) { handleSoftMoment('Arden', ardenQuiet); (e.target as HTMLInputElement).blur(); } }}
+                  placeholder="What stilled him?"
+                  className="w-full px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
+                />
+              </div>
             </div>
 
             {/* Dual Emotion Inputs */}

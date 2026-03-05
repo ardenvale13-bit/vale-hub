@@ -94,7 +94,13 @@ export class MemoryService {
         .select('id')
         .single();
 
-      if (entityError) throw entityError;
+      if (entityError) {
+        // Handle duplicate name (UNIQUE constraint on user_id, name)
+        if (entityError.code === '23505') {
+          throw new AppError(409, `Entity with name '${name.trim()}' already exists`);
+        }
+        throw entityError;
+      }
 
       if (!entity) {
         throw new AppError(500, 'Failed to create entity');
@@ -130,7 +136,7 @@ export class MemoryService {
         .from('observations')
         .select('content')
         .eq('entity_id', entityId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (obsError) throw obsError;
 
@@ -173,7 +179,7 @@ export class MemoryService {
         .from('observations')
         .select('content')
         .eq('entity_id', entity.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (obsError) throw obsError;
 
@@ -330,16 +336,18 @@ export class MemoryService {
       let entityId = entityIdOrName;
 
       if (UUID_REGEX.test(entityIdOrName)) {
-        const { data: existingEntity } = await this.supabase
+        // Verify entity exists — single() throws PGRST116 if not found
+        const { data: existingEntity, error: lookupError } = await this.supabase
           .from('entities')
           .select('id')
           .eq('user_id', userId)
           .eq('id', entityIdOrName)
           .single();
 
-        if (!existingEntity) {
-          throw new AppError(404, `Entity not found: ${entityIdOrName}`);
+        if (lookupError || !existingEntity) {
+          throw new AppError(404, `Entity not found with ID: ${entityIdOrName}`);
         }
+        entityId = existingEntity.id;
       } else {
         // Look up by name
         const { data: entityByName } = await this.supabase
