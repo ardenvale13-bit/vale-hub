@@ -45,6 +45,44 @@ export async function handleToolCall(
         return await memoryService.addObservation(userId, entity_id, observation);
       }
 
+      case 'update_entity': {
+        const { entity, name, entity_type, salience, context, visibility } = toolInput;
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        let entityId: string;
+        if (UUID_RE.test(entity)) {
+          entityId = entity;
+        } else {
+          const resolved = await memoryService.getEntityByIdOrName(userId, entity);
+          entityId = resolved.id;
+        }
+
+        return await memoryService.updateEntity(userId, entityId, {
+          name,
+          entity_type,
+          salience,
+          context,
+          visibility,
+        });
+      }
+
+      case 'delete_entity': {
+        const { entity } = toolInput;
+        await memoryService.deleteEntityByIdOrName(userId, entity);
+        return { success: true, message: `Entity '${entity}' deleted` };
+      }
+
+      case 'edit_observation': {
+        const { observation_id, content } = toolInput;
+        return await memoryService.editObservation(observation_id, content, userId);
+      }
+
+      case 'delete_observation': {
+        const { observation_id } = toolInput;
+        await memoryService.deleteObservation(observation_id);
+        return { success: true, message: `Observation ${observation_id} deleted` };
+      }
+
       case 'search_entities': {
         const { query, limit } = toolInput;
         return await memoryService.searchEntities(userId, query, limit || 20);

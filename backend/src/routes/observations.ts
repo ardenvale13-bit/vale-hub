@@ -46,6 +46,27 @@ router.get('/:entity_id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+router.patch('/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+
+    if (!content) {
+      throw new AppError(400, 'Missing required field: content');
+    }
+
+    const obs = await memoryService.editObservation(id, content, req.userId);
+
+    res.json(obs);
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ error: error.code, message: error.message });
+    }
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    res.status(500).json({ error: 'Internal Server Error', message: msg });
+  }
+});
+
 router.delete('/:id', async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;

@@ -422,6 +422,51 @@ export class MemoryService {
     }
   }
 
+  async editObservation(
+    observationId: string,
+    newContent: string,
+    userId?: string,
+  ): Promise<Observation> {
+    try {
+      if (!newContent || !newContent.trim()) {
+        throw new AppError(400, 'Observation content cannot be empty');
+      }
+
+      // Build the update query
+      let query = this.supabase
+        .from('observations')
+        .update({ content: newContent.trim() })
+        .eq('id', observationId);
+
+      // If userId provided, scope to user for safety
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data: obs, error: obsError } = await query.select('*').single();
+
+      if (obsError) {
+        if (obsError.code === 'PGRST116') {
+          throw new AppError(404, `Observation not found: ${observationId}`);
+        }
+        throw obsError;
+      }
+      if (!obs) {
+        throw new AppError(404, `Observation not found: ${observationId}`);
+      }
+
+      return {
+        id: obs.id,
+        entity_id: obs.entity_id,
+        observation: obs.content,
+        created_at: obs.created_at,
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(500, `Failed to edit observation: ${errMsg(error)}`);
+    }
+  }
+
   async deleteObservation(observationId: string): Promise<void> {
     try {
       const { error: delError } = await this.supabase

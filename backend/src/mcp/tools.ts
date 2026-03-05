@@ -78,6 +78,88 @@ export const mcpTools = [
     },
   },
   {
+    name: 'update_entity',
+    description: 'Update an existing entity. Can change name, type, salience, context, or visibility. Accepts entity UUID or name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: {
+          type: 'string',
+          description: 'Entity UUID or name to update',
+        },
+        name: {
+          type: 'string',
+          description: 'New name for the entity',
+        },
+        entity_type: {
+          type: 'string',
+          description: 'New entity type',
+        },
+        salience: {
+          type: 'string',
+          enum: ['foundational', 'active-immediate', 'active-recent', 'background', 'archive'],
+          description: 'New salience level',
+        },
+        context: {
+          type: 'string',
+          enum: ['default', 'emotional', 'relational', 'episodic', 'creative', 'intimate'],
+          description: 'New context type',
+        },
+        visibility: {
+          type: 'string',
+          description: 'New visibility (e.g. "shared", "Lincoln")',
+        },
+      },
+      required: ['entity'],
+    },
+  },
+  {
+    name: 'delete_entity',
+    description: 'Delete an entity and all its observations. Accepts entity UUID or name. This is permanent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entity: {
+          type: 'string',
+          description: 'Entity UUID or name to delete',
+        },
+      },
+      required: ['entity'],
+    },
+  },
+  {
+    name: 'edit_observation',
+    description: 'Edit the content of an existing observation. Requires the observation UUID (returned by orientation, get_entity, or add_observation).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        observation_id: {
+          type: 'string',
+          description: 'The UUID of the observation to edit',
+        },
+        content: {
+          type: 'string',
+          description: 'The new content for the observation',
+        },
+      },
+      required: ['observation_id', 'content'],
+    },
+  },
+  {
+    name: 'delete_observation',
+    description: 'Delete a specific observation by its UUID. This is permanent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        observation_id: {
+          type: 'string',
+          description: 'The UUID of the observation to delete',
+        },
+      },
+      required: ['observation_id'],
+    },
+  },
+  {
     name: 'search_entities',
     description: 'Search for entities by name or context',
     inputSchema: {
