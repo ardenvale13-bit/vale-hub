@@ -30,6 +30,27 @@ export interface Relation {
 // UUID v4 regex for detecting if a string is a UUID
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Valid enum values matching the database schema
+const VALID_SALIENCE = ['foundational', 'active-immediate', 'active-recent', 'background', 'archive'] as const;
+const VALID_CONTEXT = ['default', 'emotional', 'relational', 'episodic', 'creative', 'intimate'] as const;
+const VALID_ENTITY_TYPES = ['person', 'place', 'concept', 'event', 'pattern', 'moment', 'system', 'general'] as const;
+
+function validateSalience(salience?: string): string | undefined {
+  if (!salience) return undefined;
+  if (!(VALID_SALIENCE as readonly string[]).includes(salience)) {
+    throw new AppError(400, `Invalid salience: '${salience}'. Must be one of: ${VALID_SALIENCE.join(', ')}`);
+  }
+  return salience;
+}
+
+function validateContext(context?: string): string | undefined {
+  if (!context) return undefined;
+  if (!(VALID_CONTEXT as readonly string[]).includes(context)) {
+    throw new AppError(400, `Invalid context: '${context}'. Must be one of: ${VALID_CONTEXT.join(', ')}`);
+  }
+  return context;
+}
+
 function errMsg(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
@@ -49,14 +70,25 @@ export class MemoryService {
     visibility?: string,
   ): Promise<Entity> {
     try {
+      // Validate inputs
+      if (!name || !name.trim()) {
+        throw new AppError(400, 'Entity name cannot be empty');
+      }
+      if (!entityType || !entityType.trim()) {
+        throw new AppError(400, 'Entity type cannot be empty');
+      }
+
+      const validatedSalience = validateSalience(salience);
+      const validatedContext = validateContext(context);
+
       const { data: entity, error: entityError } = await this.supabase
         .from('entities')
         .insert({
           user_id: userId,
-          name,
-          entity_type: entityType,
-          context,
-          salience,
+          name: name.trim(),
+          entity_type: entityType.trim(),
+          context: validatedContext,
+          salience: validatedSalience,
           visibility,
         })
         .select('id')
@@ -186,16 +218,20 @@ export class MemoryService {
     context?: string,
   ): Promise<Entity[]> {
     try {
+      // Validate filters if provided
+      const validatedSalience = validateSalience(salience);
+      const validatedContext = validateContext(context);
+
       let query = this.supabase
         .from('entities')
         .select('*')
         .eq('user_id', userId);
 
-      if (salience) {
-        query = query.eq('salience', salience);
+      if (validatedSalience) {
+        query = query.eq('salience', validatedSalience);
       }
-      if (context) {
-        query = query.eq('context', context);
+      if (validatedContext) {
+        query = query.eq('context', validatedContext);
       }
 
       const { data: entities, error: entitiesError } = await query
@@ -236,11 +272,18 @@ export class MemoryService {
     updates: Partial<Entity>,
   ): Promise<Entity> {
     try {
+      // Validate fields if provided
+      if (updates.salience) validateSalience(updates.salience);
+      if (updates.context) validateContext(updates.context);
+      if (updates.name !== undefined && (!updates.name || !updates.name.trim())) {
+        throw new AppError(400, 'Entity name cannot be empty');
+      }
+
       const { error: updateError } = await this.supabase
         .from('entities')
         .update({
-          name: updates.name,
-          entity_type: updates.entity_type,
+          name: updates.name?.trim(),
+          entity_type: updates.entity_type?.trim(),
           context: updates.context,
           salience: updates.salience,
           visibility: updates.visibility,
@@ -277,6 +320,13 @@ export class MemoryService {
     observation: string,
   ): Promise<Observation> {
     try {
+      if (!observation || !observation.trim()) {
+        throw new AppError(400, 'Observation cannot be empty');
+      }
+      if (!entityIdOrName || !entityIdOrName.trim()) {
+        throw new AppError(400, 'Entity ID or name is required');
+      }
+
       let entityId = entityIdOrName;
 
       if (UUID_REGEX.test(entityIdOrName)) {

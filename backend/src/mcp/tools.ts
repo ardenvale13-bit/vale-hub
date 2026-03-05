@@ -497,4 +497,31 @@ export const mcpTools = [
       properties: {},
     },
   },
+  // ===== ORIENTATION =====
+  {
+    name: 'vale_get_orientation',
+    description:
+      "Wake-up / orientation call. Returns everything Lincoln needs to know: identity (who I am), " +
+      "Arden's current state (spoons, pain, fog, battery, mood), Love-O-Meter, recent emotions, " +
+      "key memory entities (foundational/active), recent journal entries, notes between stars, " +
+      "and temporal context (NZ time, day of week). Call this at the START of every conversation.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        perspective: {
+          type: 'string',
+          description: 'Perspective to orient from (default: Lincoln). Returns this perspective + shared entries.',
+          default: 'Lincoln',
+        },
+        depth: {
+          type: 'string',
+          enum: ['minimal', 'standard', 'full', 'all'],
+          description:
+            'How much to load. minimal=identity+status only, standard=+active entities/emotions/journals (default), ' +
+            'full=+analytics+more entities, all=everything',
+          default: 'standard',
+        },
+      },
+    },
+  },
 ];

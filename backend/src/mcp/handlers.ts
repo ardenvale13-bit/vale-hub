@@ -3,6 +3,7 @@ import { memoryService } from '../services/memory.service.js';
 import { emotionalService } from '../services/emotional.service.js';
 import { voiceService } from '../services/voice.service.js';
 import { discordService } from '../services/discord.service.js';
+import { orientationService } from '../services/orientation.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -312,6 +313,16 @@ export async function handleToolCall(
         };
       }
 
+      // ===== ORIENTATION =====
+      case 'vale_get_orientation': {
+        const { perspective, depth } = toolInput;
+        return await orientationService.getOrientation(
+          userId,
+          perspective || 'Lincoln',
+          depth || 'standard',
+        );
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }
@@ -319,6 +330,7 @@ export async function handleToolCall(
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(500, `Tool execution failed: ${error}`);
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
+    throw new AppError(500, `Tool execution failed: ${msg}`);
   }
 }
