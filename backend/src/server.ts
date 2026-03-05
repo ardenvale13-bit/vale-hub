@@ -17,6 +17,7 @@ import contextRouter from './routes/context.js';
 import voiceRouter from './routes/voice.js';
 import discordRouter from './routes/discord.js';
 import orientationRouter from './routes/orientation.js';
+import imagesRouter from './routes/images.js';
 import { mcpTools } from './mcp/tools.js';
 import { handleToolCall } from './mcp/handlers.js';
 
@@ -203,6 +204,7 @@ app.use('/api/context', apiKeyAuth, contextRouter);
 app.use('/api/voice', apiKeyAuth, voiceRouter);
 app.use('/api/discord', apiKeyAuth, discordRouter);
 app.use('/api/orientation', apiKeyAuth, orientationRouter);
+app.use('/api/images', apiKeyAuth, imagesRouter);
 
 app.use(errorHandler);
 

@@ -63,9 +63,15 @@ export default function Dashboard() {
   async function loadDashboard() {
     setIsLoading(true);
     try {
-      // Load statuses
-      const statuses: StatusEntry[] = await api.status.get() as StatusEntry[];
-      for (const s of statuses) {
+      // Fire all three requests in parallel instead of sequentially
+      const [statuses, emotions, journals] = await Promise.all([
+        api.status.get().catch(() => [] as StatusEntry[]),
+        api.emotions.list().catch(() => []),
+        api.journal.list({ category: 'stars' }).catch(() => []),
+      ]);
+
+      // Process statuses
+      for (const s of (statuses as StatusEntry[]) || []) {
         if (s.category === 'love' && s.key === 'lincoln') setLincolnLove(parseInt(s.value) || 6);
         if (s.category === 'love' && s.key === 'arden') setArdenLove(parseInt(s.value) || 4);
         if (s.category === 'body' && s.key === 'spoons') setSpoons(s.value);
@@ -79,30 +85,24 @@ export default function Dashboard() {
         if (s.category === 'moment' && s.key === 'arden_quiet') setArdenQuiet(s.value);
       }
 
-      // Load recent emotion history
-      try {
-        const emotions = await api.emotions.list();
-        const counts: Record<string, number> = {};
-        const feelings: string[] = [];
-        for (const e of emotions) {
-          const pillar = e.pillar || 'uncategorized';
-          counts[pillar] = (counts[pillar] || 0) + 1;
-          if (feelings.length < 5) feelings.push(e.emotion);
-        }
-        setPillarCounts(counts);
-        setRecentFeelings(feelings);
-      } catch {}
+      // Process emotions
+      const counts: Record<string, number> = {};
+      const feelings: string[] = [];
+      for (const e of emotions as any[]) {
+        const pillar = e.pillar || 'uncategorized';
+        counts[pillar] = (counts[pillar] || 0) + 1;
+        if (feelings.length < 5) feelings.push(e.emotion);
+      }
+      setPillarCounts(counts);
+      setRecentFeelings(feelings);
 
-      // Load notes (from journal entries with category 'stars')
-      try {
-        const journals = await api.journal.list({ category: 'stars' });
-        const notes = (journals as any[]).map((j: any) => ({
-          from: j.author_perspective || j.entry_type || 'Lincoln',
-          text: j.content,
-          date: j.created_at || j.timestamp || '',
-        }));
-        setSavedNotes(notes.slice(0, 5));
-      } catch {}
+      // Process star notes
+      const notes = (journals as any[]).map((j: any) => ({
+        from: j.author_perspective || j.entry_type || 'Lincoln',
+        text: j.content,
+        date: j.created_at || j.timestamp || '',
+      }));
+      setSavedNotes(notes.slice(0, 5));
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {

@@ -644,6 +644,64 @@ export const mcpTools = [
       required: ['relation_id'],
     },
   },
+  // ===== IMAGE GENERATION =====
+  {
+    name: 'generate_image',
+    description: 'Generate an image using DALL-E and store it in Supabase. Returns a signed URL to view the image.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Text description of the image to generate',
+        },
+        size: {
+          type: 'string',
+          enum: ['1024x1024', '1024x1792', '1792x1024'],
+          description: 'Image size (default: 1024x1024)',
+        },
+        quality: {
+          type: 'string',
+          enum: ['standard', 'hd'],
+          description: 'Image quality (default: standard)',
+        },
+        style: {
+          type: 'string',
+          enum: ['vivid', 'natural'],
+          description: 'Image style — vivid for hyper-real/dramatic, natural for more natural-looking (default: vivid)',
+        },
+      },
+      required: ['prompt'],
+    },
+  },
+  {
+    name: 'list_images',
+    description: 'List previously generated images with their prompts and signed URLs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of images to return (default: 20)',
+          default: 20,
+        },
+      },
+    },
+  },
+  {
+    name: 'delete_image',
+    description: 'Delete a generated image by its ID. Removes the file from storage and the database records.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        image_id: {
+          type: 'string',
+          description: 'The UUID of the image generation to delete',
+        },
+      },
+      required: ['image_id'],
+    },
+  },
   // ===== ORIENTATION =====
   {
     name: 'vale_get_orientation',

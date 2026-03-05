@@ -53,46 +53,51 @@ export default function Memory() {
   // Mobile detail view
   const [showDetail, setShowDetail] = useState(false);
 
-  // Load entities and identity
+  // Load all data in parallel on mount and filter change
   useEffect(() => {
-    loadEntities();
-    loadIdentity();
-    loadSalienceCounts();
+    loadAll();
   }, [salienceFilter, contextFilter]);
 
-  async function loadEntities() {
+  async function loadAll() {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const params: Record<string, string> = {};
       if (salienceFilter) params.salience = salienceFilter;
       if (contextFilter) params.context = contextFilter;
 
-      const data = await api.entities.list(params as any);
-      setEntities(data);
+      const [entitiesData, identityData, countsData] = await Promise.all([
+        api.entities.list(params as any).catch(() => [] as Entity[]),
+        api.identity.get().catch(() => [] as Identity[]),
+        api.entities.salienceCounts().catch(() => ({} as Record<string, number>)),
+      ]);
+
+      setEntities(entitiesData);
+      setIdentities(Array.isArray(identityData) ? identityData : identityData ? [identityData] : []);
+      setSalienceCounts(countsData);
     } catch (error) {
-      console.error('Error loading entities:', error);
+      console.error('Error loading memory data:', error);
     } finally {
       setIsLoading(false);
     }
   }
 
+  // Individual loaders for post-mutation refresh
+  async function loadEntities() {
+    const params: Record<string, string> = {};
+    if (salienceFilter) params.salience = salienceFilter;
+    if (contextFilter) params.context = contextFilter;
+    const data = await api.entities.list(params as any).catch(() => []);
+    setEntities(data);
+  }
+
   async function loadIdentity() {
-    try {
-      const data = await api.identity.get();
-      setIdentities(Array.isArray(data) ? data : data ? [data] : []);
-    } catch (error) {
-      console.error('Error loading identity:', error);
-      setIdentities([]);
-    }
+    const data = await api.identity.get().catch(() => []);
+    setIdentities(Array.isArray(data) ? data : data ? [data] : []);
   }
 
   async function loadSalienceCounts() {
-    try {
-      const counts = await api.entities.salienceCounts();
-      setSalienceCounts(counts);
-    } catch (error) {
-      console.error('Error loading salience counts:', error);
-    }
+    const counts = await api.entities.salienceCounts().catch(() => ({}));
+    setSalienceCounts(counts);
   }
 
   const filteredEntities = entities.filter((entity) =>

@@ -4,6 +4,7 @@ import { emotionalService } from '../services/emotional.service.js';
 import { voiceService } from '../services/voice.service.js';
 import { discordService } from '../services/discord.service.js';
 import { orientationService } from '../services/orientation.service.js';
+import { imageService } from '../services/image.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -394,6 +395,23 @@ export async function handleToolCall(
             date: n.created_at,
           })),
         };
+      }
+
+      // ===== IMAGE GENERATION =====
+      case 'generate_image': {
+        const { prompt, size, quality, style } = toolInput;
+        return await imageService.generateImage(userId, prompt, { size, quality, style });
+      }
+
+      case 'list_images': {
+        const { limit } = toolInput;
+        return await imageService.listImages(userId, limit || 20);
+      }
+
+      case 'delete_image': {
+        const { image_id } = toolInput;
+        await imageService.deleteImage(userId, image_id);
+        return { success: true, message: `Image ${image_id} deleted` };
       }
 
       // ===== ORIENTATION =====
