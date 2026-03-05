@@ -24,7 +24,7 @@ export function getSupabaseClient() {
 export async function initializeStorageBuckets() {
   const supabase = getSupabaseClient();
 
-  const buckets = ['voice-notes', 'avatars'];
+  const buckets = ['voice-notes', 'avatars', 'media'];
 
   for (const bucketName of buckets) {
     try {
