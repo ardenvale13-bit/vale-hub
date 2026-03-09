@@ -16,6 +16,8 @@ const envSchema = z.object({
   ELEVENLABS_API_KEY: z.string().optional(),
   ELEVENLABS_DEFAULT_VOICE_ID: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
   CORS_ORIGIN: z.string().default('http://localhost:5173'), // Comma-separated for multiple origins
 });
 

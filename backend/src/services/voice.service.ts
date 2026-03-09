@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../config/supabase.js';
 import { getEnv } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { pushService } from './push.service.js';
 
 class VoiceService {
   private supabase = getSupabaseClient();
@@ -127,6 +128,16 @@ class VoiceService {
     const { data: signedUrlData, error: urlError } = await this.supabase.storage
       .from('voice-notes')
       .createSignedUrl(storagePath, 3600);
+
+    // Fire push notification (non-blocking — don't let it fail the response)
+    const speaker = options.perspective || 'Lincoln';
+    const previewText = text.length > 80 ? text.slice(0, 77) + '...' : text;
+    pushService.sendToUser(userId, {
+      title: `New voice memo from ${speaker}`,
+      body: previewText,
+      tag: 'voice-memo',
+      url: '/media',
+    }).catch((err) => console.error('Push notification failed:', err));
 
     return {
       ...voiceNote,

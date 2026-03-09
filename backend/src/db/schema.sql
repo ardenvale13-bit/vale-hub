@@ -314,7 +314,22 @@ CREATE INDEX IF NOT EXISTS idx_discord_messages_user ON discord_messages(user_id
 CREATE INDEX IF NOT EXISTS idx_discord_messages_channel ON discord_messages(channel_id, created_at DESC);
 
 -- ============================================================
--- Q) UPDATED_AT TRIGGER
+-- Q) PUSH SUBSCRIPTIONS (PWA notifications)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id);
+
+-- ============================================================
+-- R) UPDATED_AT TRIGGER
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -419,6 +434,7 @@ ALTER TABLE voice_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discord_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discord_guilds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE discord_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
 -- Phase 2: Add RLS policies when switching to Supabase Auth
 -- CREATE POLICY "users_own_data" ON entities USING (user_id = auth.uid());
