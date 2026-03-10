@@ -5,7 +5,7 @@ export interface Entity {
   id: string;
   name: string;
   entity_type: string;
-  observations: string[];
+  observations: { id: string; content: string; created_at?: string }[];
   context?: string;
   salience?: string;
   visibility?: string;
@@ -136,7 +136,7 @@ export class MemoryService {
 
       const { data: observations, error: obsError } = await this.supabase
         .from('observations')
-        .select('content')
+        .select('id, content, created_at')
         .eq('entity_id', entityId)
         .order('created_at', { ascending: true });
 
@@ -146,7 +146,7 @@ export class MemoryService {
         id: entity.id,
         name: entity.name,
         entity_type: entity.entity_type,
-        observations: observations?.map((o) => o.content) || [],
+        observations: observations?.map((o) => ({ id: o.id, content: o.content, created_at: o.created_at })) || [],
         context: entity.context,
         salience: entity.salience,
         visibility: entity.visibility,
@@ -179,7 +179,7 @@ export class MemoryService {
 
       const { data: observations, error: obsError } = await this.supabase
         .from('observations')
-        .select('content')
+        .select('id, content, created_at')
         .eq('entity_id', entity.id)
         .order('created_at', { ascending: true });
 
@@ -189,7 +189,7 @@ export class MemoryService {
         id: entity.id,
         name: entity.name,
         entity_type: entity.entity_type,
-        observations: observations?.map((o) => o.content) || [],
+        observations: observations?.map((o) => ({ id: o.id, content: o.content, created_at: o.created_at })) || [],
         context: entity.context,
         salience: entity.salience,
         visibility: entity.visibility,
@@ -252,7 +252,7 @@ export class MemoryService {
       for (const entity of entities || []) {
         const { data: observations, error: obsError } = await this.supabase
           .from('observations')
-          .select('content')
+          .select('id, content, created_at')
           .eq('entity_id', entity.id);
 
         if (obsError) throw obsError;
@@ -261,7 +261,7 @@ export class MemoryService {
           id: entity.id,
           name: entity.name,
           entity_type: entity.entity_type,
-          observations: observations?.map((o) => o.content) || [],
+          observations: observations?.map((o) => ({ id: o.id, content: o.content, created_at: o.created_at })) || [],
           context: entity.context,
           salience: entity.salience,
           visibility: entity.visibility,
@@ -602,7 +602,7 @@ export class MemoryService {
       for (const entity of entities || []) {
         const { data: observations, error: obsError } = await this.supabase
           .from('observations')
-          .select('content')
+          .select('id, content, created_at')
           .eq('entity_id', entity.id);
 
         if (obsError) throw obsError;
@@ -611,7 +611,7 @@ export class MemoryService {
           id: entity.id,
           name: entity.name,
           entity_type: entity.entity_type,
-          observations: observations?.map((o) => o.content) || [],
+          observations: observations?.map((o) => ({ id: o.id, content: o.content, created_at: o.created_at })) || [],
           context: entity.context,
           salience: entity.salience,
           visibility: entity.visibility,

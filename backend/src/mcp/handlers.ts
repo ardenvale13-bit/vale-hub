@@ -290,17 +290,17 @@ export async function handleToolCall(
       // ===== LINCOLN DASHBOARD TOOLS =====
       case 'lincoln_set_love': {
         const { value } = toolInput;
-        const clamped = Math.min(10, Math.max(0, Math.round(value)));
+        const clamped = Math.min(10, Math.max(0, Math.round(value * 10) / 10));
         const { data, error } = await supabase
           .from('statuses')
           .upsert(
-            { user_id: userId, category: 'love', key: 'lincoln', value: clamped.toString(), updated_at: new Date().toISOString() },
+            { user_id: userId, category: 'love', key: 'meter', value: clamped.toString(), updated_at: new Date().toISOString() },
             { onConflict: 'user_id,category,key' },
           )
           .select('*')
           .single();
         if (error) throw error;
-        return { success: true, love_value: clamped, message: `Lincoln's Love-O-Meter set to ${clamped}/10` };
+        return { success: true, love_value: clamped, message: `Love-O-Meter set to ${clamped}/10 (0=Lincoln's side, 10=Arden's side)` };
       }
 
       case 'lincoln_log_emotion': {
@@ -372,8 +372,8 @@ export async function handleToolCall(
 
         return {
           love_o_meter: {
-            lincoln: parseInt(statusMap.love?.lincoln || '6'),
-            arden: parseInt(statusMap.love?.arden || '4'),
+            value: parseFloat(statusMap.love?.meter || '5'),
+            description: '0 = Lincoln\'s side, 5 = center, 10 = Arden\'s side',
           },
           arden_status: {
             spoons: statusMap.body?.spoons || 'not set',

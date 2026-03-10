@@ -39,12 +39,18 @@ async function apiCall<T>(
   return response.json();
 }
 
+export interface ObservationEntry {
+  id: string;
+  content: string;
+  created_at?: string;
+}
+
 export interface Entity {
   id?: string;
   name: string;
   type?: string;
   entity_type?: string;
-  observations: string[];
+  observations: (string | ObservationEntry)[];
   context?: string;
   salience?: string;
   visibility?: string;

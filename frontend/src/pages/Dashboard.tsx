@@ -17,9 +17,11 @@ interface StatusEntry {
 }
 
 export default function Dashboard() {
-  // Love-O-Meter state
-  const [lincolnLove, setLincolnLove] = useState(6);
-  const [ardenLove, setArdenLove] = useState(4);
+  // Love-O-Meter state — single shared value 0-10 (5 = center)
+  // Lower = Lincoln's side, Higher = Arden's side
+  const [loveMeter, setLoveMeter] = useState(5);
+  const [loveEntry, setLoveEntry] = useState('');
+  const [isSubmittingLove, setIsSubmittingLove] = useState(false);
 
   // Lincoln & Arden soft/quiet moments
   const [lincolnSoft, setLincolnSoft] = useState('');
@@ -72,8 +74,7 @@ export default function Dashboard() {
 
       // Process statuses
       for (const s of (statuses as StatusEntry[]) || []) {
-        if (s.category === 'love' && s.key === 'lincoln') setLincolnLove(parseInt(s.value) || 6);
-        if (s.category === 'love' && s.key === 'arden') setArdenLove(parseInt(s.value) || 4);
+        if (s.category === 'love' && s.key === 'meter') setLoveMeter(parseFloat(s.value) || 5);
         if (s.category === 'body' && s.key === 'spoons') setSpoons(s.value);
         if (s.category === 'body' && s.key === 'battery') setBodyBattery(s.value);
         if (s.category === 'body' && s.key === 'pain') setPain(s.value);
@@ -118,10 +119,45 @@ export default function Dashboard() {
     }
   }
 
-  async function handleLoveChange(who: 'lincoln' | 'arden', val: number) {
-    if (who === 'lincoln') setLincolnLove(val);
-    else setArdenLove(val);
-    await saveStatus('love', who, val.toString());
+  async function handleLoveMeterChange(val: number) {
+    const clamped = Math.min(10, Math.max(0, Math.round(val * 10) / 10));
+    setLoveMeter(clamped);
+    await saveStatus('love', 'meter', clamped.toString());
+  }
+
+  async function handleLoveEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (!loveEntry.trim()) return;
+    setIsSubmittingLove(true);
+    try {
+      const text = loveEntry.trim();
+      const lower = text.toLowerCase();
+      // Determine direction: if entry starts with a name, shift that direction
+      let shift = 0;
+      if (lower.startsWith('arden')) {
+        shift = 0.5; // shift toward Arden (higher)
+      } else if (lower.startsWith('lincoln') || lower.startsWith('linc')) {
+        shift = -0.5; // shift toward Lincoln (lower)
+      }
+
+      const newVal = Math.min(10, Math.max(0, Math.round((loveMeter + shift) * 10) / 10));
+      setLoveMeter(newVal);
+      await saveStatus('love', 'meter', newVal.toString());
+
+      // Log it as an emotion too
+      await api.emotions.create({
+        emotion: text,
+        intensity: 3,
+        context: 'love-o-meter entry',
+        pillar: 'relationship',
+      });
+
+      setLoveEntry('');
+    } catch (err) {
+      console.error('Failed to save love entry:', err);
+    } finally {
+      setIsSubmittingLove(false);
+    }
   }
 
   async function handleLogEq(e: React.FormEvent) {
@@ -238,70 +274,77 @@ export default function Dashboard() {
               <p className="text-xs text-vale-muted">A log of our tenderness</p>
             </div>
 
-            {/* The Meter */}
+            {/* The Shared Meter */}
             <div className="relative mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-center">
-                  <span className="text-xs text-vale-muted uppercase">Lincoln</span>
-                  <p className="text-2xl sm:text-3xl font-bold text-vale-lincoln">{lincolnLove}</p>
-                </div>
+              {/* Names and indicator */}
+              <div className="flex items-center justify-between mb-3">
+                <span className={`text-sm font-bold transition-colors ${loveMeter < 5 ? 'text-vale-lincoln' : 'text-vale-lincoln/50'}`}>
+                  Lincoln
+                </span>
                 <div className="flex flex-col items-center">
-                  <Heart className="w-5 h-5 text-vale-accent fill-vale-accent mb-1" />
-                  <span className="text-xs text-vale-muted">
-                    {Math.round((lincolnLove + ardenLove) / 2)}/10
-                  </span>
+                  <Heart className={`w-5 h-5 transition-colors ${loveMeter === 5 ? 'text-vale-accent fill-vale-accent' : loveMeter < 5 ? 'text-vale-lincoln fill-vale-lincoln' : 'text-vale-arden fill-vale-arden'}`} />
+                  <span className="text-xs text-vale-muted mt-0.5">{loveMeter}/10</span>
                 </div>
-                <div className="text-center">
-                  <span className="text-xs text-vale-muted uppercase">Arden</span>
-                  <p className="text-2xl sm:text-3xl font-bold text-vale-arden">{ardenLove}</p>
-                </div>
+                <span className={`text-sm font-bold transition-colors ${loveMeter > 5 ? 'text-vale-arden' : 'text-vale-arden/50'}`}>
+                  Arden
+                </span>
               </div>
 
-              {/* Dual gradient bar */}
-              <div className="relative h-5 rounded-full overflow-hidden love-gradient opacity-80 cursor-pointer"
+              {/* Single gradient bar */}
+              <div
+                className="relative h-6 rounded-full overflow-hidden cursor-pointer"
+                style={{
+                  background: 'linear-gradient(to right, #711ea6, #e5b2e6 50%, #34bed6)',
+                }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
-                  const pct = x / rect.width;
-                  const val = Math.round(pct * 10);
-                  // Left half = Lincoln, right half = Arden
-                  if (pct < 0.5) handleLoveChange('lincoln', Math.min(10, Math.max(0, val)));
-                  else handleLoveChange('arden', Math.min(10, Math.max(0, val)));
+                  const val = Math.round((x / rect.width) * 10);
+                  handleLoveMeterChange(val);
                 }}
               >
-                {/* Lincoln indicator */}
+                {/* Center line */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
+                {/* Indicator */}
                 <div
-                  className="absolute top-0 bottom-0 w-1.5 bg-vale-lincoln rounded shadow-lg transition-all duration-300 border border-white/50"
-                  style={{ left: `${(lincolnLove / 10) * 100}%` }}
-                  title={`Lincoln: ${lincolnLove}/10`}
-                />
-                {/* Arden indicator */}
-                <div
-                  className="absolute top-0 bottom-0 w-1.5 bg-vale-arden rounded shadow-lg transition-all duration-300 border border-white/50"
-                  style={{ left: `${(ardenLove / 10) * 100}%` }}
-                  title={`Arden: ${ardenLove}/10`}
+                  className="absolute top-0 bottom-0 w-2 rounded shadow-lg transition-all duration-500 ease-out border-2 border-white/80"
+                  style={{
+                    left: `calc(${(loveMeter / 10) * 100}% - 4px)`,
+                    background: loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6',
+                    boxShadow: `0 0 8px ${loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6'}`,
+                  }}
                 />
               </div>
 
-              {/* Sliders */}
-              <div className="grid grid-cols-2 gap-4 mt-3">
-                <div>
-                  <label className="text-[10px] text-vale-lincoln uppercase block mb-1">Lincoln</label>
+              {/* Range slider (for fine control) */}
+              <input
+                type="range" min="0" max="10" step="0.5" value={loveMeter}
+                onChange={(e) => handleLoveMeterChange(parseFloat(e.target.value))}
+                className="w-full accent-vale-accent h-1 bg-vale-border rounded appearance-none cursor-pointer mt-2 opacity-40 hover:opacity-80 transition-opacity"
+              />
+
+              {/* Entry input — type a name to shift */}
+              <form onSubmit={handleLoveEntry} className="mt-4">
+                <div className="flex gap-2">
                   <input
-                    type="range" min="0" max="10" value={lincolnLove}
-                    onChange={(e) => handleLoveChange('lincoln', parseInt(e.target.value))}
-                    className="w-full accent-vale-lincoln h-1.5 bg-vale-border rounded appearance-none cursor-pointer"
+                    type="text"
+                    value={loveEntry}
+                    onChange={(e) => setLoveEntry(e.target.value)}
+                    placeholder="Arden held my hand... / Lincoln left a note..."
+                    className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
                   />
+                  <button
+                    type="submit"
+                    disabled={!loveEntry.trim() || isSubmittingLove}
+                    className="px-4 py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50 transition-colors"
+                  >
+                    {isSubmittingLove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
                 </div>
-                <div>
-                  <label className="text-[10px] text-vale-arden uppercase block mb-1">Arden</label>
-                  <input
-                    type="range" min="0" max="10" value={ardenLove}
-                    onChange={(e) => handleLoveChange('arden', parseInt(e.target.value))}
-                    className="w-full accent-vale-arden h-1.5 bg-vale-border rounded appearance-none cursor-pointer"
-                  />
-                </div>
-              </div>
+                <p className="text-[10px] text-vale-muted mt-1.5">
+                  Start with "Arden" or "Lincoln" to shift the meter their direction
+                </p>
+              </form>
             </div>
 
             {/* Soft / Quiet Moments */}

@@ -204,13 +204,13 @@ export const mcpTools = [
   // ===== 10-14. LINCOLN DASHBOARD (used every conversation) =====
   {
     name: 'lincoln_set_love',
-    description: "Set Lincoln's Love-O-Meter value (0-10). Only modifies Lincoln's side.",
+    description: "Set the shared Love-O-Meter value (0-10). 0 = fully Lincoln's side, 5 = center, 10 = fully Arden's side. Use to shift the meter based on tender moments.",
     inputSchema: {
       type: 'object',
       properties: {
         value: {
           type: 'number',
-          description: 'Love meter value from 0 to 10',
+          description: 'Love meter position: 0 = Lincoln side, 5 = center, 10 = Arden side. Supports half-steps (e.g., 4.5).',
           minimum: 0,
           maximum: 10,
         },

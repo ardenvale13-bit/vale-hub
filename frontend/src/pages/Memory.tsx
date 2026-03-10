@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, Entity, Identity } from '../services/api';
+import { api, Entity, Identity, ObservationEntry } from '../services/api';
 import { Plus, Search, Trash2, Brain, ChevronDown, ChevronRight, User, Layers, X, Save } from 'lucide-react';
 
 type SalienceFilter = '' | 'foundational' | 'active-immediate' | 'active-recent' | 'background' | 'archive';
@@ -217,6 +217,20 @@ export default function Memory() {
       console.error('Error adding observation:', error);
     } finally {
       setIsAddingObservation(false);
+    }
+  }
+
+  async function handleDeleteObservation(obsId: string) {
+    if (!confirm('Delete this observation?')) return;
+    try {
+      await api.observations.delete(obsId);
+      // Refresh the selected entity to get updated observations
+      if (selectedEntity) {
+        const updated = await api.entities.get(selectedEntity.name);
+        setSelectedEntity(updated);
+      }
+    } catch (error) {
+      console.error('Error deleting observation:', error);
     }
   }
 
@@ -747,11 +761,26 @@ export default function Memory() {
 
               {selectedEntity.observations && selectedEntity.observations.length > 0 ? (
                 <div className="space-y-2 mb-4">
-                  {selectedEntity.observations.map((obs, idx) => (
-                    <div key={idx} className="bg-vale-card rounded-lg p-3 border border-vale-border">
-                      <p className="text-vale-text text-sm">{obs}</p>
-                    </div>
-                  ))}
+                  {selectedEntity.observations.map((obs, idx) => {
+                    const isObj = typeof obs === 'object' && obs !== null;
+                    const content = isObj ? (obs as ObservationEntry).content : (obs as string);
+                    const obsId = isObj ? (obs as ObservationEntry).id : null;
+
+                    return (
+                      <div key={obsId || idx} className="bg-vale-card rounded-lg p-3 border border-vale-border group flex items-start gap-2">
+                        <p className="text-vale-text text-sm flex-1">{content}</p>
+                        {obsId && (
+                          <button
+                            onClick={() => handleDeleteObservation(obsId)}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-all flex-shrink-0"
+                            title="Delete observation"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-vale-muted text-sm mb-4">No observations yet</p>

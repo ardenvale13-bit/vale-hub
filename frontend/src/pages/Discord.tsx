@@ -188,11 +188,11 @@ export default function Discord() {
   }
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-8 max-w-5xl">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-vale-text mb-2">Discord</h1>
-        <p className="text-vale-muted">Connect and control your Discord bot</p>
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-bold text-vale-text mb-2">Discord</h1>
+        <p className="text-vale-muted text-sm sm:text-base">Connect and control your Discord bot</p>
       </div>
 
       {/* Error / Success */}
@@ -209,10 +209,10 @@ export default function Discord() {
       )}
 
       {/* Bot Status + Connection */}
-      <div className="bg-vale-card border border-vale-border rounded-lg p-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-semibold text-vale-text">Bot Status</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {botStatus.connected ? (
               <>
                 <div className="flex items-center gap-2">
@@ -229,7 +229,7 @@ export default function Discord() {
                 </button>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <WifiOff className="w-4 h-4 text-vale-muted" />
                 <span className="text-sm text-vale-muted">Disconnected</span>
                 <button
@@ -246,7 +246,7 @@ export default function Discord() {
         </div>
 
         {!botStatus.connected && (
-          <form onSubmit={handleConnect} className="flex gap-3 mt-4">
+          <form onSubmit={handleConnect} className="flex flex-col sm:flex-row gap-3 mt-4">
             <div className="flex-1 relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-vale-muted" />
               <input
@@ -276,9 +276,9 @@ export default function Discord() {
 
       {/* Main Interface — Only show when connected */}
       {botStatus.connected && (
-        <div className="grid grid-cols-12 gap-4 h-[600px]">
+        <div className="flex flex-col md:grid md:grid-cols-12 gap-4 h-auto md:h-[600px]">
           {/* Sidebar: Guilds + Channels */}
-          <div className="col-span-3 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col">
+          <div className="md:col-span-4 lg:col-span-3 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col max-h-60 md:max-h-none">
             {/* Guilds */}
             <div className="p-3 border-b border-vale-border">
               <h3 className="text-xs font-semibold text-vale-muted uppercase tracking-wider flex items-center gap-1">
@@ -291,13 +291,13 @@ export default function Discord() {
                 <div key={guild.id}>
                   <button
                     onClick={() => handleSelectGuild(guild)}
-                    className={`w-full text-left px-3 py-2 text-sm transition-colors flex items-center justify-between ${
+                    className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center justify-between ${
                       selectedGuild?.id === guild.id
                         ? 'bg-vale-accent/20 text-vale-accent'
                         : 'text-vale-text hover:bg-vale-surface'
                     }`}
                   >
-                    <span className="truncate">{guild.name}</span>
+                    <span className="truncate mr-2">{guild.name}</span>
                     <ChevronRight className="w-3 h-3 flex-shrink-0" />
                   </button>
 
@@ -308,7 +308,7 @@ export default function Discord() {
                         <button
                           key={channel.id}
                           onClick={() => handleSelectChannel(channel)}
-                          className={`w-full text-left px-4 py-1.5 text-sm transition-colors flex items-center gap-1.5 ${
+                          className={`w-full text-left px-5 py-2 text-sm transition-colors flex items-center gap-2 ${
                             selectedChannel?.id === channel.id
                               ? 'bg-vale-accent/10 text-vale-accent'
                               : 'text-vale-muted hover:text-vale-text hover:bg-vale-surface'
@@ -326,7 +326,7 @@ export default function Discord() {
           </div>
 
           {/* Chat Area */}
-          <div className="col-span-9 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col">
+          <div className="md:col-span-8 lg:col-span-9 bg-vale-card border border-vale-border rounded-lg overflow-hidden flex flex-col min-h-[400px] md:min-h-0">
             {/* Channel Header */}
             <div className="px-4 py-3 border-b border-vale-border flex items-center justify-between">
               {selectedChannel ? (
