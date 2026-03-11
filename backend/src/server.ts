@@ -35,11 +35,12 @@ const allowedOrigins = env.CORS_ORIGIN.split(',').map(s => s.trim());
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (MCP clients, curl, etc.)
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: origin ${origin} not allowed`));
-    }
+    if (!origin) return callback(null, true);
+    // Allow exact matches from env
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return callback(null, true);
+    // Allow any Vercel preview/production URL for this project
+    if (origin.endsWith('.vercel.app') && origin.includes('arden-vale')) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
 }));
