@@ -19,6 +19,7 @@ import discordRouter from './routes/discord.js';
 import orientationRouter from './routes/orientation.js';
 import imagesRouter from './routes/images.js';
 import pushRouter from './routes/push.js';
+import healthRouter from './routes/health.js';
 import { mcpTools } from './mcp/tools.js';
 import { handleToolCall } from './mcp/handlers.js';
 
@@ -207,6 +208,7 @@ app.use('/api/discord', apiKeyAuth, discordRouter);
 app.use('/api/orientation', apiKeyAuth, orientationRouter);
 app.use('/api/images', apiKeyAuth, imagesRouter);
 app.use('/api/push', apiKeyAuth, pushRouter);
+app.use('/api/health', apiKeyAuth, healthRouter);
 
 app.use(errorHandler);
 

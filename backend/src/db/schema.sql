@@ -478,6 +478,53 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================
+-- R2) HEALTH ENTRIES (unified health data)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS health_entries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  source TEXT NOT NULL DEFAULT 'manual',  -- 'vale-tracker', 'fitbit', 'manual'
+  category TEXT NOT NULL,                  -- 'checkin', 'sleep', 'hydration', 'cycle', 'activity'
+  data JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, date, source, category)
+);
+
+CREATE INDEX IF NOT EXISTS idx_health_user_date ON health_entries(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_health_source ON health_entries(user_id, source);
+CREATE INDEX IF NOT EXISTS idx_health_category ON health_entries(user_id, category);
+
+ALTER TABLE health_entries ENABLE ROW LEVEL SECURITY;
+
+DROP TRIGGER IF EXISTS trg_health_updated_at ON health_entries;
+CREATE TRIGGER trg_health_updated_at BEFORE UPDATE ON health_entries FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- R3) FITBIT TOKENS (OAuth2 refresh tokens)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS fitbit_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  token_type TEXT DEFAULT 'Bearer',
+  expires_at TIMESTAMPTZ NOT NULL,
+  scope TEXT,
+  fitbit_user_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE fitbit_tokens ENABLE ROW LEVEL SECURITY;
+
+DROP TRIGGER IF EXISTS trg_fitbit_tokens_updated_at ON fitbit_tokens;
+CREATE TRIGGER trg_fitbit_tokens_updated_at BEFORE UPDATE ON fitbit_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
 -- HEARTH SCHEMA COMPLETE
 -- Embers Remember.
 -- ============================================================

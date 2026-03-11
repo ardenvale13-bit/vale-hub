@@ -1,11 +1,12 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Brain, Heart, MessageSquare, Mic, BookOpen } from 'lucide-react';
+import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Memory from './pages/Memory';
 import Emotions from './pages/Emotions';
 import Discord from './pages/Discord';
 import Media from './pages/Media';
 import Journal from './pages/Journal';
+import Health from './pages/Health';
 
 export default function App() {
   const location = useLocation();
@@ -17,6 +18,7 @@ export default function App() {
     { path: '/discord', label: 'Discord', icon: MessageSquare },
     { path: '/media', label: 'Media', icon: Mic },
     { path: '/journal', label: 'Journal', icon: BookOpen },
+    { path: '/health', label: 'Health', icon: Activity },
   ];
 
   return (
@@ -92,11 +94,12 @@ export default function App() {
           <Route path="/discord" element={<Discord />} />
           <Route path="/media" element={<Media />} />
           <Route path="/journal" element={<Journal />} />
+          <Route path="/health" element={<Health />} />
         </Routes>
       </main>
 
       {/* Mobile Bottom Nav — visible only on mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-vale-surface border-t border-vale-border flex items-center justify-around py-2 px-1 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-vale-surface border-t border-vale-border flex items-center justify-around py-1.5 px-0.5 z-50">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -105,14 +108,14 @@ export default function App() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors min-w-0 ${
+              className={`flex flex-col items-center gap-0.5 px-1 py-1 rounded-lg transition-colors min-w-0 ${
                 isActive
                   ? 'text-vale-accent'
                   : 'text-vale-muted'
               }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium truncate">{item.label}</span>
+              <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+              <span className="text-[9px] sm:text-[10px] font-medium truncate">{item.label}</span>
             </Link>
           );
         })}

@@ -111,12 +111,14 @@ export interface ContextInfo {
   databases?: string[];
 }
 
-export interface HealthData {
-  date?: string;
-  period?: string;
-  mood?: string;
-  sleep?: number;
-  hydration?: number;
+export interface HealthEntry {
+  id: string;
+  date: string;
+  source: string;
+  category: string;
+  data: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const entities = {
@@ -223,14 +225,26 @@ const context = {
 };
 
 const health = {
-  get: (date?: string) =>
-    apiCall<HealthData>(`/health${date ? `/${date}` : ''}`),
+  recent: (days?: number) =>
+    apiCall<Record<string, HealthEntry[]>>(`/health/recent?days=${days || 7}`),
 
-  getSummary: (days?: number) =>
-    apiCall<HealthData[]>(`/health/summary${days ? `?days=${days}` : ''}`),
+  day: (date: string) =>
+    apiCall<HealthEntry[]>(`/health/day/${date}`),
 
-  update: (date: string, data: Partial<HealthData>) =>
-    apiCall<HealthData>(`/health/${date}`, 'PUT', data),
+  range: (start: string, end: string, category?: string) =>
+    apiCall<HealthEntry[]>(`/health/range?start=${start}&end=${end}${category ? `&category=${category}` : ''}`),
+
+  upsert: (entry: { date: string; source?: string; category: string; data: Record<string, any> }) =>
+    apiCall<HealthEntry>('/health/entry', 'POST', entry),
+
+  syncValeTracker: (data: any) =>
+    apiCall<{ synced: number }>('/health/sync/vale-tracker', 'POST', { data }),
+
+  syncFitbitSleep: (sleep: any[]) =>
+    apiCall<{ synced: number }>('/health/sync/fitbit-sleep', 'POST', { sleep }),
+
+  delete: (id: string) =>
+    apiCall<void>(`/health/${id}`, 'DELETE'),
 };
 
 // ===== VOICE =====
