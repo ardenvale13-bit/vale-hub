@@ -64,11 +64,18 @@ router.post('/entry', async (req: any, res) => {
 });
 
 // POST /api/health/sync/vale-tracker — bulk sync Vale Tracker data
+// If body has { data: ... }, uses that. Otherwise fetches from JSONBin directly.
 router.post('/sync/vale-tracker', async (req: any, res) => {
   try {
-    const { data: valeData } = req.body;
-    if (!valeData) return res.status(400).json({ error: 'data field required with Vale Tracker JSON' });
-    const result = await healthService.syncValeTracker(req.userId, valeData);
+    const { data: valeData } = req.body || {};
+    let result;
+    if (valeData) {
+      // Manual data pass
+      result = await healthService.syncValeTracker(req.userId, valeData);
+    } else {
+      // Auto-fetch from JSONBin
+      result = await healthService.fetchAndSyncValeTracker(req.userId);
+    }
     res.json(result);
   } catch (error) {
     if (error instanceof AppError) return res.status(error.statusCode).json({ error: error.message });

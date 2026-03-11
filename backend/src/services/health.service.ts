@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../config/supabase.js';
+import { getEnv } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const supabase = getSupabaseClient();
@@ -128,6 +129,36 @@ class HealthService {
   }
 
   /**
+   * Fetch Vale Tracker data from JSONBin and sync it
+   */
+  async fetchAndSyncValeTracker(userId: string): Promise<{ synced: number }> {
+    const env = getEnv();
+    const binId = env.JSONBIN_BIN_ID;
+    const apiKey = env.JSONBIN_API_KEY;
+
+    if (!binId || !apiKey) {
+      throw new AppError(400, 'JSONBin credentials not configured. Set JSONBIN_BIN_ID and JSONBIN_API_KEY in environment.');
+    }
+
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+      headers: { 'X-Master-Key': apiKey },
+    });
+
+    if (!response.ok) {
+      throw new AppError(502, `Failed to fetch from JSONBin: ${response.status} ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    const valeData = json.record;
+
+    if (!valeData) {
+      throw new AppError(502, 'JSONBin returned no record data');
+    }
+
+    return this.syncValeTracker(userId, valeData);
+  }
+
+  /**
    * Sync Vale Tracker data — takes the raw JSONBin data and normalizes into health_entries
    */
   async syncValeTracker(userId: string, valeData: any): Promise<{ synced: number }> {
@@ -179,21 +210,45 @@ class HealthService {
       }
     }
 
-    // Sync hydration
-    if (valeData.hydration?.days) {
-      for (const [dateKey, dayData] of Object.entries(valeData.hydration.days)) {
-        const d = dayData as any;
-        const totalMl = (d.entries || []).reduce((sum: number, e: any) => sum + (e.ml || 0), 0);
+    // Sync hydration — data can be at hydration.{date} or hydration.days.{date}
+    if (valeData.hydration) {
+      const hydrationDates = new Set<string>();
+
+      // Process top-level date keys (newer format: goal + amount)
+      for (const [key, val] of Object.entries(valeData.hydration)) {
+        if (key === 'days' || !/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+        hydrationDates.add(key);
+        const d = val as any;
+        const totalMl = (d.entries || []).reduce((sum: number, e: any) => sum + (e.amount || e.ml || 0), 0);
         entries.push({
-          date: dateKey,
+          date: key,
           source: 'vale-tracker',
           category: 'hydration',
           data: {
             total_ml: totalMl,
-            goal_ml: d.goalMl || 2000,
+            goal_ml: d.goal || d.goalMl || 2000,
             entries: d.entries || [],
           },
         });
+      }
+
+      // Process hydration.days.{date} (older format: goalMl + ml) — skip dates already processed
+      if (valeData.hydration.days) {
+        for (const [dateKey, dayData] of Object.entries(valeData.hydration.days)) {
+          if (hydrationDates.has(dateKey)) continue;
+          const d = dayData as any;
+          const totalMl = (d.entries || []).reduce((sum: number, e: any) => sum + (e.amount || e.ml || 0), 0);
+          entries.push({
+            date: dateKey,
+            source: 'vale-tracker',
+            category: 'hydration',
+            data: {
+              total_ml: totalMl,
+              goal_ml: d.goalMl || d.goal || 2000,
+              entries: d.entries || [],
+            },
+          });
+        }
       }
     }
 

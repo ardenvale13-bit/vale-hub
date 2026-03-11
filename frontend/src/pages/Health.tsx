@@ -59,28 +59,13 @@ export default function Health() {
     setIsSyncing(true);
     setSyncMessage(null);
     try {
-      // Fetch the raw Vale Tracker data via the API endpoint
-      // The frontend calls the backend sync endpoint which processes it
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://vale-hub-production.up.railway.app'}/api/health/sync/vale-tracker`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_API_KEY || '',
-        },
-        body: JSON.stringify({ data: null }), // Backend will need to fetch from JSONBin
-      });
-
-      if (!response.ok) {
-        // If the backend can't fetch directly, we'll need to fetch client-side
-        // For now, show instruction
-        setSyncMessage('Use the sync button after configuring your JSONBin URL in settings.');
-      } else {
-        const result = await response.json();
-        setSyncMessage(`Synced ${result.synced} entries from Vale Tracker!`);
-        await loadData();
-      }
-    } catch (err) {
-      setSyncMessage('Sync failed — check console for details.');
+      // Backend fetches from JSONBin directly — no data needed from frontend
+      const result = await api.health.syncValeTracker(null);
+      setSyncMessage(`Synced ${result.synced} entries from Vale Tracker!`);
+      await loadData();
+    } catch (err: any) {
+      const msg = err?.message || 'Sync failed — check console for details.';
+      setSyncMessage(msg);
       console.error('Vale Tracker sync error:', err);
     } finally {
       setIsSyncing(false);
