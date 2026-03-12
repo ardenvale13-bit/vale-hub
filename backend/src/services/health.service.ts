@@ -43,7 +43,14 @@ class HealthService {
    * Bulk upsert — used for syncing entire datasets
    */
   async bulkUpsert(userId: string, entries: Omit<HealthEntry, 'id'>[]): Promise<number> {
-    const rows = entries.map((e) => ({
+    // Deduplicate — last entry wins for same (date, source, category)
+    const seen = new Map<string, typeof entries[0]>();
+    for (const e of entries) {
+      const key = `${e.date}|${e.source}|${e.category}`;
+      seen.set(key, e);
+    }
+
+    const rows = Array.from(seen.values()).map((e) => ({
       user_id: userId,
       date: e.date,
       source: e.source,
@@ -52,11 +59,17 @@ class HealthService {
       updated_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase
-      .from('health_entries')
-      .upsert(rows, { onConflict: 'user_id,date,source,category' });
+    // Batch in chunks of 500 to avoid payload limits
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const batch = rows.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase
+        .from('health_entries')
+        .upsert(batch, { onConflict: 'user_id,date,source,category' });
 
-    if (error) throw new AppError(500, `Failed to bulk upsert: ${error.message}`);
+      if (error) throw new AppError(500, `Failed to bulk upsert: ${error.message}`);
+    }
+
     return rows.length;
   }
 
@@ -300,7 +313,7 @@ class HealthService {
             rem: stages.rem?.minutes || 0,
             wake: stages.wake?.minutes || 0,
           },
-          sleep_score: s.score, // if available from Fitbit Premium
+          sleep_score: s.score,
         },
       });
     }
