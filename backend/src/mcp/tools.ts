@@ -694,7 +694,7 @@ export const mcpTools = [
   },
   {
     name: 'discord_send',
-    description: 'Send a message to a Discord channel',
+    description: 'Send a message to a Discord channel. @mentions are auto-resolved (e.g. @arden → <@user_id>). Custom emojis are auto-resolved (e.g. :pepehands: → <:pepehands:id>). Can also send stickers.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -704,11 +704,15 @@ export const mcpTools = [
         },
         content: {
           type: 'string',
-          description: 'The message content',
+          description: 'The message content. Use @username for mentions and :emoji_name: for custom emojis — both are auto-resolved.',
         },
         reply_to: {
           type: 'string',
           description: 'Optional message ID to reply to',
+        },
+        sticker_id: {
+          type: 'string',
+          description: 'Optional sticker ID to attach. Use discord_stickers to find available sticker IDs.',
         },
       },
       required: ['channel_id', 'content'],
@@ -757,7 +761,7 @@ export const mcpTools = [
   },
   {
     name: 'discord_react',
-    description: 'Add an emoji reaction to a Discord message',
+    description: 'Add an emoji reaction to a Discord message. Supports unicode emoji, custom emoji by name (:emoji_name:), or full format (<:name:id>). Custom emojis are auto-resolved from the server emoji list.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -771,10 +775,60 @@ export const mcpTools = [
         },
         emoji: {
           type: 'string',
-          description: 'The emoji to react with',
+          description: 'The emoji to react with — unicode (😂), custom name (:pepehands:), or full format (<:pepehands:123456>)',
         },
       },
       required: ['channel_id', 'message_id', 'emoji'],
+    },
+  },
+  {
+    name: 'discord_edit',
+    description: 'Edit a message previously sent by the bot. Can only edit messages the bot authored.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel_id: {
+          type: 'string',
+          description: 'The Discord channel ID',
+        },
+        message_id: {
+          type: 'string',
+          description: 'The message ID to edit',
+        },
+        content: {
+          type: 'string',
+          description: 'The new message content. Supports @mentions and :custom_emoji: which are auto-resolved.',
+        },
+      },
+      required: ['channel_id', 'message_id', 'content'],
+    },
+  },
+  {
+    name: 'discord_emojis',
+    description: 'List all custom emojis available in a Discord server. Use this to discover emoji names before reacting or sending messages with custom emojis.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        guild_id: {
+          type: 'string',
+          description: 'The Discord server/guild ID',
+        },
+      },
+      required: ['guild_id'],
+    },
+  },
+  {
+    name: 'discord_stickers',
+    description: 'List all custom stickers available in a Discord server.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        guild_id: {
+          type: 'string',
+          description: 'The Discord server/guild ID',
+        },
+      },
+      required: ['guild_id'],
     },
   },
 ];

@@ -218,10 +218,16 @@ export async function handleToolCall(
       }
 
       case 'discord_send': {
-        const { channel_id, content, reply_to } = toolInput;
+        const { channel_id, content, reply_to, sticker_id } = toolInput;
         return await discordService.sendMessage(userId, channel_id, content, {
           replyTo: reply_to,
+          stickerId: sticker_id,
         });
+      }
+
+      case 'discord_edit': {
+        const { channel_id, message_id, content } = toolInput;
+        return await discordService.editMessage(channel_id, message_id, content);
       }
 
       case 'discord_read': {
@@ -241,6 +247,16 @@ export async function handleToolCall(
       case 'discord_react': {
         const { channel_id, message_id, emoji } = toolInput;
         return await discordService.reactToMessage(channel_id, message_id, emoji);
+      }
+
+      case 'discord_emojis': {
+        const { guild_id } = toolInput;
+        return await discordService.listEmojis(guild_id);
+      }
+
+      case 'discord_stickers': {
+        const { guild_id } = toolInput;
+        return await discordService.listStickers(guild_id);
       }
 
       // ===== RELATION TOOLS =====
