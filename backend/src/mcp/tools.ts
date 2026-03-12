@@ -568,7 +568,47 @@ export const mcpTools = [
       },
     },
   },
-  // ===== 29+. BELOW MOBILE CUTOFF — rarely needed from phone =====
+  // ===== 29-31. HEALTH DATA =====
+  {
+    name: 'health_summary',
+    description:
+      "Get a health summary for recent days. Returns check-in data (period, symptoms, mood, meds), " +
+      "sleep (stages, duration, rested), hydration (ml vs goal), and cycle info. " +
+      "Pulls from Vale Hub's Supabase database (synced from Vale Tracker + Fitbit).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: {
+          type: 'number',
+          description: 'Number of days to look back (default: 7)',
+          default: 7,
+        },
+      },
+    },
+  },
+  {
+    name: 'health_day',
+    description: "Get all health data for a specific date — checkin, sleep, hydration, cycle. Returns everything logged that day.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        date: {
+          type: 'string',
+          description: 'Date in YYYY-MM-DD format',
+        },
+      },
+      required: ['date'],
+    },
+  },
+  {
+    name: 'health_sync',
+    description: "Trigger a sync of Vale Tracker data from JSONBin into Vale Hub's database. Run this after Arden logs new data in Tracky.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  // ===== 32+. BELOW MOBILE CUTOFF — rarely needed from phone =====
   {
     name: 'get_emotion_analytics',
     description: 'Get emotion analytics and trends',

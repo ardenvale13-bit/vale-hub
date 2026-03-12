@@ -5,6 +5,7 @@ import { voiceService } from '../services/voice.service.js';
 import { discordService } from '../services/discord.service.js';
 import { orientationService } from '../services/orientation.service.js';
 import { imageService } from '../services/image.service.js';
+import { healthService } from '../services/health.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -422,6 +423,74 @@ export async function handleToolCall(
           perspective || 'Lincoln',
           depth || 'standard',
         );
+      }
+
+      // ===== HEALTH DATA =====
+      case 'health_summary': {
+        const days = toolInput.days || 7;
+        const byDate = await healthService.getRecent(userId, days);
+        const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+        const summary: any[] = [];
+        for (const date of dates) {
+          const entries = byDate[date];
+          const day: any = { date };
+
+          for (const entry of entries) {
+            if (entry.category === 'checkin') {
+              day.checkin = {
+                mood: entry.data.mind?.mood || [],
+                mental: entry.data.mind?.mental || [],
+                motivation: entry.data.mind?.motivation,
+                horny: entry.data.mind?.horny,
+                flow: entry.data.period?.flow || [],
+                body: entry.data.physical?.body || [],
+                stomach: { bloat: entry.data.stomach?.bloat, gas: entry.data.stomach?.gas, nausea: entry.data.stomach?.nausea },
+                poop: entry.data.poop?.status ? `${entry.data.poop.status} - ${entry.data.poop.texture}` : null,
+                meds: entry.data.meds || [],
+              };
+            } else if (entry.category === 'sleep') {
+              day.sleep = {
+                source: entry.source,
+                start: entry.data.start || entry.data.start_time,
+                end: entry.data.end || entry.data.end_time,
+                hours: entry.data.hours || (entry.data.minutes_asleep ? Math.round(entry.data.minutes_asleep / 60 * 10) / 10 : null),
+                deep: entry.data.deep || entry.data.stages?.deep || 0,
+                rem: entry.data.rem || entry.data.stages?.rem || 0,
+                light: entry.data.light || entry.data.stages?.light || 0,
+                awake: entry.data.awake || entry.data.stages?.wake || 0,
+                rested: entry.data.rested,
+                efficiency: entry.data.efficiency,
+              };
+            } else if (entry.category === 'hydration') {
+              day.hydration = {
+                total_ml: entry.data.total_ml || 0,
+                goal_ml: entry.data.goal_ml || 2000,
+              };
+            } else if (entry.category === 'cycle') {
+              day.cycle = entry.data;
+            }
+          }
+          summary.push(day);
+        }
+
+        return { days: summary.length, data: summary };
+      }
+
+      case 'health_day': {
+        const { date } = toolInput;
+        const entries = await healthService.getDay(userId, date);
+        if (entries.length === 0) return { date, message: 'No data for this date' };
+
+        const result: any = { date };
+        for (const entry of entries) {
+          result[entry.category] = { source: entry.source, ...entry.data };
+        }
+        return result;
+      }
+
+      case 'health_sync': {
+        return await healthService.fetchAndSyncValeTracker(userId);
       }
 
       default:
