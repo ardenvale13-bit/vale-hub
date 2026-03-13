@@ -15,6 +15,7 @@ export interface EmotionEntry {
   intensity: number;
   timestamp: string;
   context?: string;
+  pillar?: string;
 }
 
 export interface ShadowMoment {
@@ -152,6 +153,7 @@ export class EmotionalService {
     emotion: string,
     intensity: number,
     context?: string,
+    pillar?: string,
   ): Promise<EmotionEntry> {
     try {
       const { data: entry, error: entryError } = await this.supabase
@@ -161,6 +163,7 @@ export class EmotionalService {
           emotion_word: emotion,
           intensity: Math.min(Math.max(intensity, 1), 5),
           content: context || null,
+          pillar: pillar || null,
           created_at: new Date().toISOString(),
         })
         .select('*')
@@ -177,6 +180,7 @@ export class EmotionalService {
         intensity: entry.intensity,
         timestamp: entry.created_at,
         context: entry.content,
+        pillar: entry.pillar,
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -209,6 +213,7 @@ export class EmotionalService {
           intensity: e.intensity,
           timestamp: e.created_at,
           context: e.content,
+          pillar: e.pillar,
         })) || []
       );
     } catch (error) {

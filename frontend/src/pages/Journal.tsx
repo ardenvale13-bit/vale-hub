@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, JournalEntry } from '../services/api';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, ChevronRight } from 'lucide-react';
 
 type CategoryFilter = '' | 'voice' | 'build' | 'reference';
 type EntryTypeFilter = '' | 'journal' | 'field-note' | 'calibration';
@@ -11,6 +11,8 @@ export default function Journal() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('');
   const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>('');
   const [isLoading, setIsLoading] = useState(true);
+  // On mobile, track whether we're viewing the list or detail
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list');
 
   // Form states
   const [newTitle, setNewTitle] = useState('');
@@ -19,6 +21,7 @@ export default function Journal() {
   const [newType, setNewType] = useState<'journal' | 'field-note' | 'calibration'>('journal');
   const [newTags, setNewTags] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
     loadEntries();
@@ -65,6 +68,8 @@ export default function Journal() {
       setNewCategory('voice');
       setNewType('journal');
       setNewTags('');
+      setShowCreateForm(false);
+      setMobileView('detail');
     } catch (error) {
       console.error('Error creating entry:', error);
     } finally {
@@ -80,10 +85,20 @@ export default function Journal() {
       setEntries(entries.filter((e) => e.id !== id));
       if (selectedEntry?.id === id) {
         setSelectedEntry(null);
+        setMobileView('list');
       }
     } catch (error) {
       console.error('Error deleting entry:', error);
     }
+  }
+
+  function handleSelectEntry(entry: JournalEntry) {
+    setSelectedEntry(entry);
+    setMobileView('detail');
+  }
+
+  function handleBackToList() {
+    setMobileView('list');
   }
 
   const filteredEntries = entries.filter((entry) => {
@@ -104,39 +119,47 @@ export default function Journal() {
     calibration: 'bg-vale-growth text-white',
   };
 
-  return (
-    <div className="flex h-full">
-      {/* Left Panel - Entry List */}
-      <div className="w-80 bg-vale-surface border-r border-vale-border flex flex-col overflow-y-auto">
-        <div className="p-6 space-y-4">
+  // ===== ENTRY LIST PANEL =====
+  const listPanel = (
+    <div className="flex flex-col h-full overflow-y-auto">
+      <div className="p-4 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-vale-text">Journal</h1>
+          <button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="p-2 bg-vale-accent/20 text-vale-accent rounded hover:bg-vale-accent/30 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Filters */}
-          <div className="space-y-3">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
-            >
-              <option value="">All Categories</option>
-              <option value="voice">Voice</option>
-              <option value="build">Build</option>
-              <option value="reference">Reference</option>
-            </select>
+        {/* Filters */}
+        <div className="flex gap-2">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+            className="flex-1 px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
+          >
+            <option value="">All Categories</option>
+            <option value="voice">Voice</option>
+            <option value="build">Build</option>
+            <option value="reference">Reference</option>
+          </select>
 
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as EntryTypeFilter)}
-              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
-            >
-              <option value="">All Types</option>
-              <option value="journal">Journal</option>
-              <option value="field-note">Field Note</option>
-              <option value="calibration">Calibration</option>
-            </select>
-          </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as EntryTypeFilter)}
+            className="flex-1 px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm"
+          >
+            <option value="">All Types</option>
+            <option value="journal">Journal</option>
+            <option value="field-note">Field Note</option>
+            <option value="calibration">Calibration</option>
+          </select>
+        </div>
 
-          {/* Create Entry Form */}
+        {/* Create Entry Form */}
+        {showCreateForm && (
           <form onSubmit={handleCreateEntry} className="pt-4 border-t border-vale-border space-y-3">
             <h3 className="font-semibold text-vale-text text-sm">New Entry</h3>
 
@@ -145,59 +168,77 @@ export default function Journal() {
               placeholder="Title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
             />
 
-            <select
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value as any)}
-              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
-            >
-              <option value="voice">Voice</option>
-              <option value="build">Build</option>
-              <option value="reference">Reference</option>
-            </select>
+            <textarea
+              placeholder="Content"
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted min-h-[80px]"
+            />
 
-            <select
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as any)}
-              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm"
-            >
-              <option value="journal">Journal</option>
-              <option value="field-note">Field Note</option>
-              <option value="calibration">Calibration</option>
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value as any)}
+                className="flex-1 px-3 py-2 bg-vale-card border border-vale-border rounded text-sm text-vale-text"
+              >
+                <option value="voice">Voice</option>
+                <option value="build">Build</option>
+                <option value="reference">Reference</option>
+              </select>
+
+              <select
+                value={newType}
+                onChange={(e) => setNewType(e.target.value as any)}
+                className="flex-1 px-3 py-2 bg-vale-card border border-vale-border rounded text-sm text-vale-text"
+              >
+                <option value="journal">Journal</option>
+                <option value="field-note">Field Note</option>
+                <option value="calibration">Calibration</option>
+              </select>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Tags (comma-separated)"
+              value={newTags}
+              onChange={(e) => setNewTags(e.target.value)}
+              className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+            />
 
             <button
               type="submit"
-              disabled={isCreating}
+              disabled={isCreating || !newTitle.trim() || !newContent.trim()}
               className="w-full px-3 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium text-sm transition-colors disabled:opacity-50"
             >
-              <Plus className="inline w-4 h-4 mr-1" />
               Create Entry
             </button>
           </form>
-        </div>
+        )}
+      </div>
 
-        {/* Entry List */}
-        <div className="flex-1 px-6 pb-6 space-y-2 overflow-y-auto">
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-16 bg-vale-card rounded animate-pulse" />
-              ))}
-            </div>
-          ) : filteredEntries.length > 0 ? (
-            filteredEntries.map((entry) => (
-              <button
-                key={entry.id}
-                onClick={() => setSelectedEntry(entry)}
-                className={`w-full text-left p-3 rounded transition-colors ${
-                  selectedEntry?.id === entry.id
-                    ? 'bg-vale-accent text-white'
-                    : 'bg-vale-card hover:bg-vale-border text-vale-text'
-                }`}
-              >
+      {/* Entry List */}
+      <div className="flex-1 px-4 sm:px-6 pb-6 space-y-2 overflow-y-auto">
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-vale-card rounded animate-pulse" />
+            ))}
+          </div>
+        ) : filteredEntries.length > 0 ? (
+          filteredEntries.map((entry) => (
+            <button
+              key={entry.id}
+              onClick={() => handleSelectEntry(entry)}
+              className={`w-full text-left p-3 rounded transition-colors flex items-center justify-between ${
+                selectedEntry?.id === entry.id
+                  ? 'bg-vale-accent text-white'
+                  : 'bg-vale-card hover:bg-vale-border text-vale-text'
+              }`}
+            >
+              <div className="flex-1 min-w-0 mr-2">
                 <p className="font-medium line-clamp-1">{entry.title}</p>
                 <div className="flex gap-1 mt-1 flex-wrap">
                   <span className={`text-xs px-2 py-0.5 rounded ${categoryColors[entry.category]}`}>
@@ -207,72 +248,112 @@ export default function Journal() {
                     {entry.entryType}
                   </span>
                 </div>
-              </button>
-            ))
-          ) : (
-            <p className="text-center text-vale-muted py-8">No entries found</p>
-          )}
-        </div>
-      </div>
-
-      {/* Right Panel - Entry Detail */}
-      <div className="flex-1 p-8 overflow-y-auto">
-        {selectedEntry ? (
-          <div className="space-y-6">
-            {/* Entry Header */}
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-3xl font-bold text-vale-text">{selectedEntry.title}</h2>
-                {selectedEntry.timestamp && (
-                  <p className="text-vale-muted text-sm mt-1">
-                    {new Date(selectedEntry.timestamp).toLocaleDateString()}
-                  </p>
-                )}
               </div>
-              <button
-                onClick={() => {
-                  if (selectedEntry.id) {
-                    handleDeleteEntry(selectedEntry.id);
-                  }
-                }}
-                className="p-2 hover:bg-vale-surface rounded transition-colors text-vale-cyan"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Metadata */}
-            <div className="flex flex-wrap gap-2">
-              <span className={`text-xs px-3 py-1 rounded font-medium ${categoryColors[selectedEntry.category]}`}>
-                {selectedEntry.category}
-              </span>
-              <span className={`text-xs px-3 py-1 rounded font-medium ${typeColors[selectedEntry.entryType]}`}>
-                {selectedEntry.entryType}
-              </span>
-              {selectedEntry.tags && selectedEntry.tags.length > 0 && (
-                <div className="flex gap-2">
-                  {selectedEntry.tags.map((tag) => (
-                    <span key={tag} className="text-xs px-3 py-1 rounded bg-vale-card text-vale-text">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="bg-vale-card rounded p-6 border border-vale-border min-h-60">
-              <p className="text-vale-text whitespace-pre-wrap">{selectedEntry.content}</p>
-            </div>
-          </div>
+              <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-50" />
+            </button>
+          ))
         ) : (
-          <div className="flex items-center justify-center h-full text-center">
-            <div>
-              <p className="text-vale-muted text-lg">Select an entry to view details</p>
-            </div>
-          </div>
+          <p className="text-center text-vale-muted py-8">No entries found</p>
         )}
       </div>
     </div>
+  );
+
+  // ===== ENTRY DETAIL PANEL =====
+  const detailPanel = selectedEntry ? (
+    <div className="p-4 sm:p-8 overflow-y-auto h-full">
+      <div className="space-y-6">
+        {/* Back button — mobile only */}
+        <button
+          onClick={handleBackToList}
+          className="md:hidden flex items-center gap-2 text-vale-accent text-sm font-medium mb-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to entries
+        </button>
+
+        {/* Entry Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-2xl sm:text-3xl font-bold text-vale-text break-words">{selectedEntry.title}</h2>
+            {selectedEntry.timestamp && (
+              <p className="text-vale-muted text-sm mt-1">
+                {new Date(selectedEntry.timestamp).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              if (selectedEntry.id) {
+                handleDeleteEntry(selectedEntry.id);
+              }
+            }}
+            className="p-2 hover:bg-vale-surface rounded transition-colors text-vale-cyan flex-shrink-0"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Metadata */}
+        <div className="flex flex-wrap gap-2">
+          <span className={`text-xs px-3 py-1 rounded font-medium ${categoryColors[selectedEntry.category]}`}>
+            {selectedEntry.category}
+          </span>
+          <span className={`text-xs px-3 py-1 rounded font-medium ${typeColors[selectedEntry.entryType]}`}>
+            {selectedEntry.entryType}
+          </span>
+          {selectedEntry.tags && selectedEntry.tags.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {selectedEntry.tags.map((tag) => (
+                <span key={tag} className="text-xs px-3 py-1 rounded bg-vale-card text-vale-text">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="bg-vale-card rounded p-4 sm:p-6 border border-vale-border min-h-[200px]">
+          <p className="text-vale-text whitespace-pre-wrap break-words">{selectedEntry.content}</p>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center justify-center h-full text-center p-4">
+      <div>
+        <p className="text-vale-muted text-lg">Select an entry to view details</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop: side-by-side layout */}
+      <div className="hidden md:flex h-full">
+        {/* Left Panel - Entry List */}
+        <div className="w-80 bg-vale-surface border-r border-vale-border flex flex-col overflow-hidden">
+          {listPanel}
+        </div>
+
+        {/* Right Panel - Entry Detail */}
+        <div className="flex-1 overflow-y-auto">
+          {detailPanel}
+        </div>
+      </div>
+
+      {/* Mobile: single panel with navigation */}
+      <div className="md:hidden h-full">
+        {mobileView === 'list' ? (
+          <div className="h-full bg-vale-surface overflow-hidden">
+            {listPanel}
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto">
+            {detailPanel}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

@@ -187,14 +187,14 @@ const journal = {
 };
 
 const emotions = {
-  list: () =>
-    apiCall<Emotion[]>('/emotions'),
+  list: (hoursBack?: number, limit?: number) =>
+    apiCall<Emotion[]>(`/emotions/history?hours_back=${hoursBack || 720}&limit=${limit || 200}`),
 
-  create: (emotion: Emotion) =>
-    apiCall<Emotion>('/emotions', 'POST', emotion),
+  create: (emotion: { emotion: string; intensity: number; context?: string; pillar?: string }) =>
+    apiCall<Emotion>('/emotions/log', 'POST', emotion),
 
-  getSummary: () =>
-    apiCall<Record<string, number>>('/emotions/summary'),
+  analytics: (daysBack?: number) =>
+    apiCall<{ dominantEmotions: string[]; averageIntensity: number; emotionTrends: Record<string, number>; totalEntries: number }>(`/emotions/analytics?days_back=${daysBack || 7}`),
 };
 
 const status = {

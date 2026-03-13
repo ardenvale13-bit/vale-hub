@@ -79,13 +79,13 @@ router.delete('/vocabulary/:id', async (req: AuthenticatedRequest, res) => {
 
 router.post('/log', async (req: AuthenticatedRequest, res) => {
   try {
-    const { emotion, intensity, context } = req.body;
+    const { emotion, intensity, context, pillar } = req.body;
 
     if (!emotion || intensity === undefined) {
       throw new AppError(400, 'Missing required fields: emotion, intensity');
     }
 
-    const entry = await emotionalService.logEmotion(req.userId, emotion, intensity, context);
+    const entry = await emotionalService.logEmotion(req.userId, emotion, intensity, context, pillar);
 
     res.status(201).json(entry);
   } catch (error) {

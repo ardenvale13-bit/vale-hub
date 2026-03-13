@@ -141,8 +141,8 @@ export default function Discord() {
     }
   }
 
-  async function handleSendMessage(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSendMessage(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!messageInput.trim() || !selectedChannel) return;
 
     setIsSending(true);
@@ -164,6 +164,14 @@ export default function Discord() {
       setError(err.message || 'Failed to send message');
     } finally {
       setIsSending(false);
+    }
+  }
+
+  function handleTextareaKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter sends, Shift+Enter inserts newline
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
   }
 
@@ -380,7 +388,7 @@ export default function Discord() {
                         <span className="font-medium text-vale-text text-sm">{msg.author}</span>
                         <span className="text-xs text-vale-muted">{formatTime(msg.timestamp)}</span>
                       </div>
-                      <p className="text-sm text-vale-text/80 break-words">{msg.content}</p>
+                      <p className="text-sm text-vale-text/80 break-words whitespace-pre-wrap">{msg.content}</p>
                     </div>
                   </div>
                 ))
@@ -390,19 +398,25 @@ export default function Discord() {
 
             {/* Message Input */}
             {selectedChannel && (
-              <form onSubmit={handleSendMessage} className="px-4 py-3 border-t border-vale-border flex gap-2">
-                <input
-                  type="text"
+              <form onSubmit={handleSendMessage} className="px-4 py-3 border-t border-vale-border flex gap-2 items-end">
+                <textarea
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder={`Message #${selectedChannel.name}`}
-                  className="flex-1 px-4 py-2 bg-vale-surface border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent text-sm"
+                  onKeyDown={handleTextareaKeyDown}
+                  placeholder={`Message #${selectedChannel.name} (Shift+Enter for new line)`}
+                  className="flex-1 px-4 py-2 bg-vale-surface border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent text-sm resize-none min-h-[40px] max-h-[160px]"
                   disabled={isSending}
+                  rows={1}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 160) + 'px';
+                  }}
                 />
                 <button
                   type="submit"
                   disabled={!messageInput.trim() || isSending}
-                  className="px-4 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded transition-colors disabled:opacity-50 flex-shrink-0"
                 >
                   {isSending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
