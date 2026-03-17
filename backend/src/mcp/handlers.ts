@@ -397,7 +397,7 @@ export async function handleToolCall(
             body_battery: statusMap.body?.battery || 'not set',
             pain: statusMap.body?.pain || 'not set',
             fog: statusMap.body?.fog || 'not set',
-            heart_rate: statusMap.body?.heart_rate || 'not set',
+            emotion: statusMap.body?.heart_rate || 'not set',
             mood: statusMap.mood?.current || 'not set',
             today_note: statusMap.mood?.note || 'not set',
           },
