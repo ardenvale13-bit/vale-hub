@@ -78,6 +78,7 @@ export interface JournalEntry {
   content: string;
   category: 'voice' | 'build' | 'reference';
   entryType: 'journal' | 'field-note' | 'calibration';
+  author_perspective?: string;
   tags?: string[];
   timestamp?: string;
 }

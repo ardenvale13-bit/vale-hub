@@ -197,7 +197,8 @@ export default function Dashboard() {
         title: `Note from ${noteFrom}`,
         content: noteText,
         category: 'stars' as any,
-        entryType: noteFrom as any,
+        entryType: 'journal',
+        author_perspective: noteFrom,
       });
       setSavedNotes((prev) => [{ from: noteFrom, text: noteText, date: new Date().toISOString() }, ...prev].slice(0, 5));
       setNoteText('');
@@ -253,7 +254,7 @@ export default function Dashboard() {
             <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'battery')} />
             <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'pain')} />
             <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'fog')} />
-            <EditableStatus label="HEART" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent history={statusHistory.filter(h => h.category === 'body' && h.key === 'heart_rate')} />
+            <EditableStatus label="EMOTION" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent history={statusHistory.filter(h => h.category === 'body' && h.key === 'heart_rate')} />
             <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} history={statusHistory.filter(h => h.category === 'mood' && h.key === 'current')} />
           </div>
           <div className="bg-vale-card border border-vale-border rounded p-3">

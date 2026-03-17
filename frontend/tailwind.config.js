@@ -47,6 +47,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
+        display: ['"Unica One"', 'sans-serif'],
       },
       animation: {
         fade: 'fadeIn 0.3s ease-in',

@@ -31,7 +31,7 @@ export default function App() {
             <span className="text-white font-bold text-lg">V</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-vale-text tracking-wide">VALE</h1>
+            <h1 className="text-xl font-bold text-vale-text tracking-wide font-display">VALE</h1>
             <p className="text-xs text-vale-muted -mt-0.5">Binary Home v2</p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function App() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-vale-mint to-vale-purple flex items-center justify-center">
             <span className="text-white font-bold text-sm">V</span>
           </div>
-          <span className="text-lg font-bold text-vale-text tracking-wide">VALE</span>
+          <span className="text-lg font-bold text-vale-text tracking-wide font-display">VALE</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-vale-lincoln text-xs font-semibold">L</span>
