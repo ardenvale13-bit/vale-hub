@@ -124,6 +124,19 @@ CREATE TABLE IF NOT EXISTS statuses (
 
 CREATE INDEX IF NOT EXISTS idx_statuses_user ON statuses(user_id, category);
 
+-- F2) STATUS HISTORY — logs every status change for 24h lookback
+CREATE TABLE IF NOT EXISTS status_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  recorded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_status_history_user_time ON status_history(user_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_status_history_lookup ON status_history(user_id, category, key, recorded_at DESC);
+
 -- ============================================================
 -- G) IDENTITY STORAGE
 -- ============================================================

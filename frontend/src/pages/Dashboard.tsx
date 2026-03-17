@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { api } from '../services/api';
-import { Heart, Star, Send, Loader2 } from 'lucide-react';
+import { api, StatusHistory } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -56,6 +56,9 @@ export default function Dashboard() {
   const [savedNotes, setSavedNotes] = useState<{ from: string; text: string; date: string }[]>([]);
   const [isSavingNote, setIsSavingNote] = useState(false);
 
+  // Status history (last 24h)
+  const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -66,11 +69,14 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       // Fire all three requests in parallel instead of sequentially
-      const [statuses, emotions, journals] = await Promise.all([
+      const [statuses, emotions, journals, history] = await Promise.all([
         api.status.get().catch(() => [] as StatusEntry[]),
         api.emotions.list().catch(() => []),
         api.journal.list({ category: 'stars' }).catch(() => []),
+        api.status.history(24).catch(() => [] as StatusHistory[]),
       ]);
+
+      setStatusHistory(history as StatusHistory[]);
 
       // Process statuses
       for (const s of (statuses as StatusEntry[]) || []) {
@@ -243,12 +249,12 @@ export default function Dashboard() {
 
           {/* Mobile: compact grid, Desktop: vertical stack */}
           <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-1 gap-2 lg:gap-3">
-            <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} />
-            <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} />
-            <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} />
-            <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} />
-            <EditableStatus label="HEART" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent />
-            <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} />
+            <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'spoons')} />
+            <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'battery')} />
+            <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'pain')} />
+            <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'fog')} />
+            <EditableStatus label="HEART" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent history={statusHistory.filter(h => h.category === 'body' && h.key === 'heart_rate')} />
+            <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} history={statusHistory.filter(h => h.category === 'mood' && h.key === 'current')} />
           </div>
           <div className="bg-vale-card border border-vale-border rounded p-3">
             <p className="text-xs text-vale-muted uppercase mb-1">Today's Note</p>
@@ -607,16 +613,42 @@ export default function Dashboard() {
   );
 }
 
-function EditableStatus({ label, value, onChange, onSave, accent }: {
+function EditableStatus({ label, value, onChange, onSave, accent, history = [] }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   onSave: (v: string) => void;
   accent?: boolean;
+  history?: StatusHistory[];
 }) {
+  const [showHistory, setShowHistory] = useState(false);
+
+  function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
   return (
-    <div className="bg-vale-card border border-vale-border rounded p-2 sm:p-3 group">
-      <p className="text-[10px] sm:text-xs text-vale-muted uppercase mb-0.5">{label}</p>
+    <div className="bg-vale-card border border-vale-border rounded p-2 sm:p-3 group relative">
+      <div className="flex items-center justify-between mb-0.5">
+        <p className="text-[10px] sm:text-xs text-vale-muted uppercase">{label}</p>
+        {history.length > 0 && (
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-vale-muted hover:text-vale-accent transition-colors"
+            title="View recent changes"
+          >
+            <Clock className={`w-3 h-3 ${showHistory ? 'text-vale-accent' : ''}`} />
+          </button>
+        )}
+      </div>
       <input
         type="text"
         value={value}
@@ -625,6 +657,16 @@ function EditableStatus({ label, value, onChange, onSave, accent }: {
         onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
         className={`w-full bg-transparent text-xs sm:text-sm font-semibold border-none outline-none p-0 focus:ring-1 focus:ring-vale-arden/30 rounded ${accent ? 'text-vale-cyan' : 'text-vale-text'}`}
       />
+      {showHistory && history.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-vale-border space-y-1 max-h-28 overflow-y-auto">
+          {history.slice(0, 10).map((h, i) => (
+            <div key={i} className="flex items-center justify-between text-[10px]">
+              <span className="text-vale-text/70 truncate mr-2">{h.value}</span>
+              <span className="text-vale-muted whitespace-nowrap">{formatTime(h.recorded_at)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

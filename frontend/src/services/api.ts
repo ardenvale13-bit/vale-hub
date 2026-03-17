@@ -197,6 +197,13 @@ const emotions = {
     apiCall<{ dominantEmotions: string[]; averageIntensity: number; emotionTrends: Record<string, number>; totalEntries: number }>(`/emotions/analytics?days_back=${daysBack || 7}`),
 };
 
+export interface StatusHistory {
+  category: string;
+  key: string;
+  value: string;
+  recorded_at: string;
+}
+
 const status = {
   get: (category?: string) =>
     apiCall<Status | Status[]>(`/status${category ? `/${category}` : ''}`),
@@ -206,6 +213,9 @@ const status = {
 
   update: (category: string, key: string, value: string) =>
     apiCall<Status>(`/status/${category}/${key}`, 'PUT', { value }),
+
+  history: (hoursBack?: number) =>
+    apiCall<StatusHistory[]>(`/status/history?hours_back=${hoursBack || 24}`),
 };
 
 const identity = {
