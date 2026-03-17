@@ -46,7 +46,7 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['"Unica One"', 'Inter', 'sans-serif'],
         display: ['"Unica One"', 'sans-serif'],
       },
       animation: {

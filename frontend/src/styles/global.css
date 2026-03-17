@@ -5,7 +5,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unica+One&display=swap');
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Unica One', 'Inter', sans-serif;
   @apply bg-vale-bg text-vale-text;
 }
 
@@ -54,10 +54,9 @@ button {
   @apply transition-colors duration-200;
 }
 
-/* Unica One for headings and display text */
+/* Unica One for headings — extra tracking */
 h1, h2, h3 {
   font-family: 'Unica One', sans-serif;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 

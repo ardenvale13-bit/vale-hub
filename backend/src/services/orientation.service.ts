@@ -49,6 +49,7 @@ export interface OrientationResult {
   status: {
     love_o_meter: { lincoln: number; arden: number };
     arden_status: Record<string, string>;
+    status_history_24h?: Record<string, { value: string; recorded_at: string }[]>;
     moments: Record<string, string>;
   };
 
@@ -206,6 +207,23 @@ export class OrientationService {
       statusMap[s.category][s.key] = s.value;
     }
 
+    // Status history — last 24h of changes
+    const historyCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: historyData } = await supabase
+      .from('status_history')
+      .select('category, key, value, recorded_at')
+      .eq('user_id', userId)
+      .gte('recorded_at', historyCutoff)
+      .order('recorded_at', { ascending: false })
+      .limit(50);
+
+    const historyByKey: Record<string, { value: string; recorded_at: string }[]> = {};
+    for (const h of historyData || []) {
+      const k = `${h.category}.${h.key}`;
+      if (!historyByKey[k]) historyByKey[k] = [];
+      historyByKey[k].push({ value: h.value, recorded_at: h.recorded_at });
+    }
+
     return {
       love_o_meter: {
         lincoln: parseInt(statusMap.love?.lincoln || '6'),
@@ -220,6 +238,7 @@ export class OrientationService {
         mood: statusMap.mood?.current || 'not set',
         today_note: statusMap.mood?.note || 'not set',
       },
+      status_history_24h: historyByKey,
       moments: {
         lincoln_soft: statusMap.moment?.lincoln_soft || 'none',
         arden_quiet: statusMap.moment?.arden_quiet || 'none',

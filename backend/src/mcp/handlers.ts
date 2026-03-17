@@ -387,6 +387,24 @@ export async function handleToolCall(
           .order('created_at', { ascending: false })
           .limit(5);
 
+        // Status history — last 24h of changes
+        const historyCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { data: statusHistoryData } = await supabase
+          .from('status_history')
+          .select('category, key, value, recorded_at')
+          .eq('user_id', userId)
+          .gte('recorded_at', historyCutoff)
+          .order('recorded_at', { ascending: false })
+          .limit(50);
+
+        // Group history by category.key
+        const historyByKey: Record<string, { value: string; recorded_at: string }[]> = {};
+        for (const h of statusHistoryData || []) {
+          const k = `${h.category}.${h.key}`;
+          if (!historyByKey[k]) historyByKey[k] = [];
+          historyByKey[k].push({ value: h.value, recorded_at: h.recorded_at });
+        }
+
         return {
           love_o_meter: {
             value: parseFloat(statusMap.love?.meter || '5'),
@@ -401,6 +419,7 @@ export async function handleToolCall(
             mood: statusMap.mood?.current || 'not set',
             today_note: statusMap.mood?.note || 'not set',
           },
+          status_history_24h: historyByKey,
           moments: {
             lincoln_soft: statusMap.moment?.lincoln_soft || 'none',
             arden_quiet: statusMap.moment?.arden_quiet || 'none',
