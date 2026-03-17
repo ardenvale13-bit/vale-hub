@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { api, StatusHistory } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { api, StatusHistory, DashboardImage } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -59,6 +59,12 @@ export default function Dashboard() {
   // Status history (last 24h)
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
 
+  // Dashboard image
+  const [dashboardImage, setDashboardImage] = useState<DashboardImage | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageCaption, setImageCaption] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -68,15 +74,20 @@ export default function Dashboard() {
   async function loadDashboard() {
     setIsLoading(true);
     try {
-      // Fire all three requests in parallel instead of sequentially
-      const [statuses, emotions, journals, history] = await Promise.all([
+      // Fire all requests in parallel
+      const [statuses, emotions, journals, history, dashImg] = await Promise.all([
         api.status.get().catch(() => [] as StatusEntry[]),
         api.emotions.list().catch(() => []),
         api.journal.list({ category: 'stars' }).catch(() => []),
         api.status.history(24).catch(() => [] as StatusHistory[]),
+        api.images.getDashboardImage().catch(() => ({ image: null })),
       ]);
 
       setStatusHistory(history as StatusHistory[]);
+      if ((dashImg as any)?.image) {
+        setDashboardImage((dashImg as any).image);
+        setImageCaption((dashImg as any).image.caption || '');
+      }
 
       // Process statuses
       for (const s of (statuses as StatusEntry[]) || []) {
@@ -227,6 +238,59 @@ export default function Dashboard() {
     if (!text.trim()) return;
     const key = who === 'Lincoln' ? 'lincoln_soft' : 'arden_quiet';
     await saveStatus('moment', key, text);
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be under 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const result = await api.images.upload(base64, {
+        caption: imageCaption || undefined,
+        tag: 'dashboard',
+        filename: `dashboard_${Date.now()}.${file.type.split('/')[1] || 'png'}`,
+        mimeType: file.type,
+      });
+
+      setDashboardImage({
+        id: result.id,
+        url: result.url,
+        caption: result.caption,
+        uploaded_at: result.created_at,
+      });
+    } catch (err) {
+      console.error('Failed to upload image:', err);
+    } finally {
+      setIsUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  async function handleRemoveDashboardImage() {
+    if (!dashboardImage?.id) return;
+    try {
+      await api.images.deleteUploaded(dashboardImage.id);
+      setDashboardImage(null);
+      setImageCaption('');
+    } catch (err) {
+      console.error('Failed to remove image:', err);
+    }
   }
 
   if (isLoading) {
@@ -488,6 +552,68 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-xs text-vale-muted">No observations yet</p>
+              )}
+            </div>
+
+            {/* Dashboard Image */}
+            <div className="bg-vale-card border border-vale-border rounded p-3">
+              <p className="text-xs text-vale-muted uppercase mb-2">Dashboard Image</p>
+              {dashboardImage?.url ? (
+                <div className="relative group">
+                  <img
+                    src={dashboardImage.url}
+                    alt={dashboardImage.caption || 'Dashboard image'}
+                    className="w-full rounded border border-vale-border object-cover max-h-48"
+                  />
+                  <button
+                    onClick={handleRemoveDashboardImage}
+                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  {dashboardImage.caption && (
+                    <p className="text-[10px] text-vale-muted mt-1 italic">{dashboardImage.caption}</p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center py-4 border border-dashed border-vale-border rounded cursor-pointer hover:border-vale-accent/50 transition-colors"
+                >
+                  {isUploadingImage ? (
+                    <Loader2 className="w-5 h-5 text-vale-accent animate-spin" />
+                  ) : (
+                    <>
+                      <ImagePlus className="w-5 h-5 text-vale-muted mb-1" />
+                      <p className="text-[10px] text-vale-muted">Tap to upload</p>
+                    </>
+                  )}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              {!dashboardImage?.url && (
+                <input
+                  type="text"
+                  value={imageCaption}
+                  onChange={(e) => setImageCaption(e.target.value)}
+                  placeholder="Caption (optional)"
+                  className="w-full mt-2 px-2 py-1 bg-vale-surface border border-vale-border rounded text-[10px] text-vale-text placeholder-vale-muted"
+                />
+              )}
+              {dashboardImage?.url && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full mt-2 py-1 text-[10px] text-vale-accent hover:text-vale-accent/80 transition-colors"
+                >
+                  {isUploadingImage ? 'Uploading...' : 'Replace image'}
+                </button>
               )}
             </div>
           </div>

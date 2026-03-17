@@ -299,6 +299,144 @@ export class ImageService {
   }
 
   /**
+   * Upload a user image (base64) to Supabase Storage and create a media record.
+   * Used for dashboard image uploads — not DALL-E generated.
+   */
+  async uploadImage(
+    userId: string,
+    base64Data: string,
+    options: {
+      filename?: string;
+      caption?: string;
+      tag?: string;
+      mimeType?: string;
+    } = {},
+  ): Promise<{ id: string; url: string; caption?: string; tag?: string; created_at: string }> {
+    try {
+      // Strip data URI prefix if present
+      const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '');
+      const imageBuffer = Buffer.from(base64Clean, 'base64');
+      const mimeType = options.mimeType || 'image/png';
+      const ext = mimeType.split('/')[1] || 'png';
+
+      const timestamp = Date.now();
+      const fileName = options.filename || `upload_${timestamp}.${ext}`;
+      const filePath = `images/${userId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, imageBuffer, {
+          contentType: mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new AppError(500, `Storage upload failed: ${uploadError.message}`);
+      }
+
+      // Create media record
+      const { data: mediaRecord, error: mediaError } = await supabase
+        .from('media')
+        .upsert({
+          user_id: userId,
+          media_type: 'image',
+          file_path: filePath,
+          file_name: fileName,
+          file_size_bytes: imageBuffer.length,
+          mime_type: mimeType,
+          source: 'uploaded',
+          source_data: { tag: options.tag || 'general', caption: options.caption },
+          description: options.caption || 'User uploaded image',
+        }, { onConflict: 'user_id,file_path' })
+        .select('id, created_at')
+        .single();
+
+      if (mediaError) {
+        throw new AppError(500, `Failed to create media record: ${mediaError.message}`);
+      }
+
+      // Get signed URL
+      const { data: signedData } = await supabase.storage
+        .from('media')
+        .createSignedUrl(filePath, 3600);
+
+      return {
+        id: mediaRecord.id,
+        url: signedData?.signedUrl || '',
+        caption: options.caption,
+        tag: options.tag,
+        created_at: mediaRecord.created_at,
+      };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      const msg = error instanceof Error ? error.message : JSON.stringify(error);
+      throw new AppError(500, `Image upload failed: ${msg}`);
+    }
+  }
+
+  /**
+   * Get the latest dashboard image for a user.
+   * Looks for the most recent media record tagged as 'dashboard'.
+   */
+  async getDashboardImage(
+    userId: string,
+  ): Promise<{ id: string; url: string; caption?: string; created_at: string } | null> {
+    try {
+      const { data: media } = await supabase
+        .from('media')
+        .select('id, file_path, source_data, description, created_at')
+        .eq('user_id', userId)
+        .eq('source', 'uploaded')
+        .filter('source_data->>tag', 'eq', 'dashboard')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!media) return null;
+
+      const { data: signedData } = await supabase.storage
+        .from('media')
+        .createSignedUrl(media.file_path, 3600);
+
+      return {
+        id: media.id,
+        url: signedData?.signedUrl || '',
+        caption: media.source_data?.caption || media.description,
+        created_at: media.created_at,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Delete an uploaded image (media record) by its media ID.
+   */
+  async deleteUploadedImage(
+    userId: string,
+    mediaId: string,
+  ): Promise<void> {
+    try {
+      const { data: media } = await supabase
+        .from('media')
+        .select('file_path')
+        .eq('id', mediaId)
+        .eq('user_id', userId)
+        .single();
+
+      if (media?.file_path) {
+        await supabase.storage.from('media').remove([media.file_path]);
+      }
+
+      await supabase.from('media').delete().eq('id', mediaId).eq('user_id', userId);
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      const msg = error instanceof Error ? error.message : JSON.stringify(error);
+      throw new AppError(500, `Failed to delete uploaded image: ${msg}`);
+    }
+  }
+
+  /**
    * Delete an image generation and its stored file.
    */
   async deleteImage(

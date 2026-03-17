@@ -405,6 +405,9 @@ export async function handleToolCall(
           historyByKey[k].push({ value: h.value, recorded_at: h.recorded_at });
         }
 
+        // Dashboard image
+        const dashboardImage = await imageService.getDashboardImage(userId);
+
         return {
           love_o_meter: {
             value: parseFloat(statusMap.love?.meter || '5'),
@@ -424,6 +427,11 @@ export async function handleToolCall(
             lincoln_soft: statusMap.moment?.lincoln_soft || 'none',
             arden_quiet: statusMap.moment?.arden_quiet || 'none',
           },
+          dashboard_image: dashboardImage ? {
+            url: dashboardImage.url,
+            caption: dashboardImage.caption || 'no caption',
+            uploaded_at: dashboardImage.created_at,
+          } : null,
           recent_emotions: recentEmotions,
           notes_between_stars: (notes || []).map((n: any) => ({
             from: n.author_perspective || n.entry_type,

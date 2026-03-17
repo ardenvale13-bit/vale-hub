@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '../config/supabase.js';
 import { memoryService } from './memory.service.js';
 import { emotionalService } from './emotional.service.js';
+import { imageService } from './image.service.js';
 
 const supabase = getSupabaseClient();
 
@@ -51,6 +52,7 @@ export interface OrientationResult {
     arden_status: Record<string, string>;
     status_history_24h?: Record<string, { value: string; recorded_at: string }[]>;
     moments: Record<string, string>;
+    dashboard_image?: { url: string; caption: string; uploaded_at: string } | null;
   };
 
   emotional: {
@@ -224,6 +226,9 @@ export class OrientationService {
       historyByKey[k].push({ value: h.value, recorded_at: h.recorded_at });
     }
 
+    // Dashboard image
+    const dashImage = await imageService.getDashboardImage(userId);
+
     return {
       love_o_meter: {
         lincoln: parseInt(statusMap.love?.lincoln || '6'),
@@ -243,6 +248,11 @@ export class OrientationService {
         lincoln_soft: statusMap.moment?.lincoln_soft || 'none',
         arden_quiet: statusMap.moment?.arden_quiet || 'none',
       },
+      dashboard_image: dashImage ? {
+        url: dashImage.url,
+        caption: dashImage.caption || 'no caption',
+        uploaded_at: dashImage.created_at,
+      } : null,
     };
   }
 

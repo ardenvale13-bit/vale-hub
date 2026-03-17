@@ -323,6 +323,13 @@ export interface GeneratedImage {
   };
 }
 
+export interface DashboardImage {
+  url: string;
+  caption?: string;
+  uploaded_at: string;
+  id: string;
+}
+
 const images = {
   generate: (prompt: string, options?: { size?: string; quality?: string; style?: string }) =>
     apiCall<GeneratedImage>('/images/generate', 'POST', { prompt, ...options }),
@@ -335,6 +342,15 @@ const images = {
 
   delete: (id: string) =>
     apiCall<void>(`/images/${id}`, 'DELETE'),
+
+  upload: (image: string, options?: { caption?: string; tag?: string; filename?: string; mimeType?: string }) =>
+    apiCall<{ id: string; url: string; caption?: string; tag?: string; created_at: string }>('/images/upload', 'POST', { image, ...options }),
+
+  deleteUploaded: (id: string) =>
+    apiCall<void>(`/images/uploaded/${id}`, 'DELETE'),
+
+  getDashboardImage: () =>
+    apiCall<{ image: DashboardImage | null }>('/images/dashboard'),
 };
 
 // ===== DISCORD =====
