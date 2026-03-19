@@ -760,6 +760,83 @@ export async function handleToolCall(
         };
       }
 
+      case 'spotify_control': {
+        const env = getEnv();
+        const { action, query, volume_percent } = toolInput;
+
+        const { data: tokenRows2 } = await supabase
+          .from('identity_store')
+          .select('key, value')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .eq('owner_perspective', 'system')
+          .eq('category', 'spotify')
+          .in('key', ['access_token', 'refresh_token', 'expires_at']);
+
+        if (!tokenRows2 || tokenRows2.length === 0) {
+          return { ok: false, error: 'Spotify not connected' };
+        }
+
+        const tokens2: any = {};
+        for (const row of tokenRows2) tokens2[row.key] = row.value;
+
+        let accessToken2 = tokens2.access_token;
+        const expiresAt2 = parseInt(tokens2.expires_at || '0', 10);
+        if (Date.now() >= expiresAt2 - 60000 && tokens2.refresh_token) {
+          const creds2 = `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`;
+          const basic2 = Buffer.from(creds2).toString('base64');
+          const refreshRes2 = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${basic2}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens2.refresh_token }),
+          });
+          if (refreshRes2.ok) {
+            const rd = await refreshRes2.json() as any;
+            accessToken2 = rd.access_token;
+            await supabase.from('identity_store').upsert(
+              { user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'access_token', value: accessToken2 },
+              { onConflict: 'user_id,owner_perspective,category,key' }
+            );
+          }
+        }
+
+        const h = { 'Authorization': `Bearer ${accessToken2}`, 'Content-Type': 'application/json' };
+
+        if (action === 'search_and_play') {
+          if (!query) return { ok: false, error: 'query required for search_and_play' };
+          const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`, { headers: h });
+          if (!searchRes.ok) return { ok: false, error: `Search failed: ${searchRes.status}` };
+          const searchData = await searchRes.json() as any;
+          const track = searchData.tracks?.items?.[0];
+          if (!track) return { ok: false, error: `No track found for: ${query}` };
+          const playRes = await fetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT', headers: h, body: JSON.stringify({ uris: [track.uri] }),
+          });
+          return { ok: playRes.ok, playing: `${track.name} by ${track.artists.map((a: any) => a.name).join(', ')}`, uri: track.uri };
+        }
+        if (action === 'play') {
+          const r = await fetch('https://api.spotify.com/v1/me/player/play', { method: 'PUT', headers: h });
+          return { ok: r.ok, action: 'resumed' };
+        }
+        if (action === 'pause') {
+          const r = await fetch('https://api.spotify.com/v1/me/player/pause', { method: 'PUT', headers: h });
+          return { ok: r.ok, action: 'paused' };
+        }
+        if (action === 'next') {
+          const r = await fetch('https://api.spotify.com/v1/me/player/next', { method: 'POST', headers: h });
+          return { ok: r.ok, action: 'skipped to next' };
+        }
+        if (action === 'previous') {
+          const r = await fetch('https://api.spotify.com/v1/me/player/previous', { method: 'POST', headers: h });
+          return { ok: r.ok, action: 'went to previous' };
+        }
+        if (action === 'volume') {
+          if (volume_percent === undefined) return { ok: false, error: 'volume_percent required' };
+          const r = await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${volume_percent}`, { method: 'PUT', headers: h });
+          return { ok: r.ok, action: `volume set to ${volume_percent}%` };
+        }
+        return { ok: false, error: `Unknown action: ${action}` };
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }

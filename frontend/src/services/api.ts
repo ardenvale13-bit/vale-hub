@@ -521,12 +521,42 @@ export interface SpotifyNowPlaying {
   track?: SpotifyTrack;
 }
 
+export interface SpotifySearchResult {
+  uri: string;
+  name: string;
+  artists: string;
+  album: string;
+  duration_ms: number;
+  external_url: string;
+}
+
 const spotify = {
   nowPlaying: () =>
     apiCall<SpotifyNowPlaying>('/spotify/now-playing'),
 
   status: () =>
     apiCall<{ connected: boolean }>('/spotify/status'),
+
+  play: (opts?: { uri?: string; context_uri?: string; position_ms?: number }) =>
+    apiCall<{ ok: boolean }>('/spotify/play', 'POST', opts || {}),
+
+  pause: () =>
+    apiCall<{ ok: boolean }>('/spotify/pause', 'POST'),
+
+  next: () =>
+    apiCall<{ ok: boolean }>('/spotify/next', 'POST'),
+
+  previous: () =>
+    apiCall<{ ok: boolean }>('/spotify/previous', 'POST'),
+
+  seek: (position_ms: number) =>
+    apiCall<{ ok: boolean }>('/spotify/seek', 'POST', { position_ms }),
+
+  volume: (volume_percent: number) =>
+    apiCall<{ ok: boolean }>('/spotify/volume', 'POST', { volume_percent }),
+
+  search: (query: string, type?: string) =>
+    apiCall<{ tracks: SpotifySearchResult[] }>('/spotify/search', 'POST', { query, type }),
 
   disconnect: () =>
     apiCall<{ ok: boolean }>('/spotify/disconnect', 'DELETE'),

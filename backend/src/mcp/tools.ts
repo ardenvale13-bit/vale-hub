@@ -922,4 +922,27 @@ export const mcpTools = [
       properties: {},
     },
   },
+  {
+    name: 'spotify_control',
+    description: "Control Arden's Spotify playback. Can play, pause, skip to next/previous track, search for a song and play it, or set volume. Use this to change what she's listening to — search for a track by name and play it, or skip/pause/resume.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['play', 'pause', 'next', 'previous', 'search_and_play', 'volume'],
+          description: "Action to perform. Use 'search_and_play' to find and play a specific song.",
+        },
+        query: {
+          type: 'string',
+          description: "Search query for 'search_and_play' — e.g. 'Cruel Summer Taylor Swift'",
+        },
+        volume_percent: {
+          type: 'number',
+          description: "Volume level 0-100, used with action 'volume'",
+        },
+      },
+      required: ['action'],
+    },
+  },
 ];

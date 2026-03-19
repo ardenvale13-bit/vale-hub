@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, StatusHistory, DashboardImage, SpotifyNowPlaying } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink } from 'lucide-react';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -826,6 +826,7 @@ function EditableStatus({ label, value, onChange, onSave, accent, history = [] }
 function SpotifyWidget({ data }: { data: SpotifyNowPlaying | null }) {
   const [progress, setProgress] = useState(0);
   const [progressMs, setProgressMs] = useState(0);
+  const [isActing, setIsActing] = useState(false);
   const animRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(Date.now());
 
@@ -852,6 +853,21 @@ function SpotifyWidget({ data }: { data: SpotifyNowPlaying | null }) {
     animRef.current = requestAnimationFrame(tick);
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [data?.playing, data?.track?.id, progressMs]);
+
+  async function handleControl(action: 'play' | 'pause' | 'next' | 'previous') {
+    if (isActing) return;
+    setIsActing(true);
+    try {
+      if (action === 'play') await api.spotify.play();
+      else if (action === 'pause') await api.spotify.pause();
+      else if (action === 'next') await api.spotify.next();
+      else if (action === 'previous') await api.spotify.previous();
+    } catch (e) {
+      console.error('Spotify control error:', e);
+    } finally {
+      setTimeout(() => setIsActing(false), 500);
+    }
+  }
 
   // Not configured at all — show nothing (not even a placeholder)
   if (data === null) return null;
@@ -983,6 +999,37 @@ function SpotifyWidget({ data }: { data: SpotifyNowPlaying | null }) {
           <span className="text-[10px] text-vale-muted">{formatTime(elapsed)}</span>
           <span className="text-[10px] text-vale-muted">{formatTime(track.duration_ms)}</span>
         </div>
+      </div>
+
+      {/* Playback controls */}
+      <div className="flex items-center justify-center gap-6 mt-3">
+        <button
+          onClick={() => handleControl('previous')}
+          disabled={isActing}
+          className="text-vale-muted hover:text-vale-text transition-colors disabled:opacity-40"
+          title="Previous"
+        >
+          <SkipBack className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => handleControl(data.playing ? 'pause' : 'play')}
+          disabled={isActing}
+          className="w-8 h-8 rounded-full bg-[#1DB954] hover:bg-[#1ed760] flex items-center justify-center transition-colors disabled:opacity-40"
+          title={data.playing ? 'Pause' : 'Play'}
+        >
+          {data.playing
+            ? <Pause className="w-4 h-4 text-black" />
+            : <Play className="w-4 h-4 text-black ml-0.5" />
+          }
+        </button>
+        <button
+          onClick={() => handleControl('next')}
+          disabled={isActing}
+          className="text-vale-muted hover:text-vale-text transition-colors disabled:opacity-40"
+          title="Next"
+        >
+          <SkipForward className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

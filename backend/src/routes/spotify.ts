@@ -111,6 +111,7 @@ router.get('/auth', (req: Request, res: Response) => {
     'user-read-currently-playing',
     'user-read-playback-state',
     'user-read-recently-played',
+    'user-modify-playback-state',
   ].join(' ');
 
   const params = new URLSearchParams({
@@ -261,6 +262,118 @@ router.get('/now-playing', async (_req: Request, res: Response) => {
 router.get('/status', async (_req: Request, res: Response) => {
   const tokens = await getStoredTokens();
   return res.json({ connected: !!(tokens?.refresh_token) });
+});
+
+// ───────────────────────────────────────────
+// Playback control
+// ───────────────────────────────────────────
+
+// POST /api/spotify/play — resume playback (or play a specific track/context)
+router.post('/play', async (req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const { uri, context_uri, position_ms } = req.body || {};
+  const body: any = {};
+  if (context_uri) body.context_uri = context_uri;
+  if (uri) body.uris = [uri];
+  if (position_ms !== undefined) body.position_ms = position_ms;
+
+  const r = await fetch('https://api.spotify.com/v1/me/player/play', {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: Object.keys(body).length ? JSON.stringify(body) : undefined,
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/pause
+router.post('/pause', async (_req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const r = await fetch('https://api.spotify.com/v1/me/player/pause', {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/next
+router.post('/next', async (_req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const r = await fetch('https://api.spotify.com/v1/me/player/next', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/previous
+router.post('/previous', async (_req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const r = await fetch('https://api.spotify.com/v1/me/player/previous', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/seek — body: { position_ms: number }
+router.post('/seek', async (req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const { position_ms } = req.body;
+  const r = await fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${position_ms}`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/volume — body: { volume_percent: number 0-100 }
+router.post('/volume', async (req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const { volume_percent } = req.body;
+  const r = await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${volume_percent}`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  return res.json({ ok: r.ok, status: r.status });
+});
+
+// POST /api/spotify/search — body: { query: string, type?: 'track'|'artist'|'album'|'playlist' }
+router.post('/search', async (req: Request, res: Response) => {
+  const accessToken = await getValidAccessToken();
+  if (!accessToken) return res.status(401).json({ error: 'Not connected' });
+
+  const { query, type = 'track' } = req.body;
+  if (!query) return res.status(400).json({ error: 'query required' });
+
+  const params = new URLSearchParams({ q: query, type, limit: '5' });
+  const r = await fetch(`https://api.spotify.com/v1/search?${params}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  if (!r.ok) return res.json({ error: `Spotify search error: ${r.status}` });
+
+  const data = await r.json() as any;
+  const tracks = data.tracks?.items?.map((t: any) => ({
+    uri: t.uri,
+    name: t.name,
+    artists: t.artists.map((a: any) => a.name).join(', '),
+    album: t.album.name,
+    duration_ms: t.duration_ms,
+    external_url: t.external_urls?.spotify,
+  })) || [];
+
+  return res.json({ tracks });
 });
 
 // DELETE /api/spotify/disconnect — remove stored tokens
