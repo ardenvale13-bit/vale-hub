@@ -38,7 +38,20 @@ export default function Chat() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadHistory();
+    loadHistory().then(() => {
+      // Check for book excerpt from Library → "Discuss with Lincoln"
+      const excerptJson = sessionStorage.getItem('lincoln-book-excerpt');
+      if (excerptJson) {
+        sessionStorage.removeItem('lincoln-book-excerpt');
+        try {
+          const excerpt = JSON.parse(excerptJson);
+          const prefix = excerpt.bookTitle
+            ? `[Reading "${excerpt.bookTitle}"${excerpt.bookAuthor ? ` by ${excerpt.bookAuthor}` : ''}, ${excerpt.chapterTitle}]\n\n`
+            : '';
+          setInput(`${prefix}What do you think about this passage?\n\n"${excerpt.text}"`);
+        } catch { /* ignore bad JSON */ }
+      }
+    });
   }, []);
 
   useEffect(() => {

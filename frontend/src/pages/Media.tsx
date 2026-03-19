@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Image, Mic, Play, Pause, Trash2, Volume2, Loader2, Download, X, Sparkles } from 'lucide-react';
-import { api, VoiceNote, Voice, GeneratedImage } from '../services/api';
+import { Image, Mic, Play, Pause, Trash2, Volume2, Loader2, Download, X, Sparkles, BookOpen, Upload, ChevronLeft, ChevronRight, MessageSquare, FileText, List } from 'lucide-react';
+import { api, VoiceNote, Voice, GeneratedImage, LibraryBook, BookDetail, BookChapter } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
-type TabType = 'images' | 'voice';
+type TabType = 'images' | 'voice' | 'library';
 
 export default function Media() {
   const [activeTab, setActiveTab] = useState<TabType>('voice');
@@ -12,12 +13,12 @@ export default function Media() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-vale-text mb-2">Media</h1>
-        <p className="text-vale-muted">Generate and manage images and voice notes</p>
+        <p className="text-vale-muted">Generate and manage images, voice notes, and your library</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-8 border-b border-vale-border">
-        {(['voice', 'images'] as const).map((tab) => (
+        {(['voice', 'images', 'library'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -29,15 +30,17 @@ export default function Media() {
           >
             {tab === 'images' && <Image className="inline w-4 h-4 mr-2" />}
             {tab === 'voice' && <Mic className="inline w-4 h-4 mr-2" />}
+            {tab === 'library' && <BookOpen className="inline w-4 h-4 mr-2" />}
             {tab}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      <div className="max-w-3xl">
+      <div className={activeTab === 'library' ? '' : 'max-w-3xl'}>
         {activeTab === 'images' && <ImagesTab />}
         {activeTab === 'voice' && <VoiceTab />}
+        {activeTab === 'library' && <LibraryTab />}
       </div>
     </div>
   );
@@ -601,6 +604,516 @@ function VoiceTab() {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== LIBRARY TAB =====
+
+function LibraryTab() {
+  const navigate = useNavigate();
+  const [books, setBooks] = useState<LibraryBook[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadAuthor, setUploadAuthor] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Reader state
+  const [activeBook, setActiveBook] = useState<BookDetail | null>(null);
+  const [activeChapter, setActiveChapter] = useState<BookChapter | null>(null);
+  const [isLoadingChapter, setIsLoadingChapter] = useState(false);
+  const [showToc, setShowToc] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const readerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadBooks();
+  }, []);
+
+  async function loadBooks() {
+    setIsLoading(true);
+    try {
+      const data = await api.library.list();
+      setBooks(data);
+    } catch (err: any) {
+      console.error('Failed to load books:', err);
+      setError(err.message || 'Failed to load library');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selectedFile || !uploadTitle.trim()) return;
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      // Read file as base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // Strip data URI prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const book = await api.library.upload(base64, {
+        title: uploadTitle.trim(),
+        author: uploadAuthor.trim() || undefined,
+        filename: selectedFile.name,
+        mimeType: selectedFile.type || 'application/octet-stream',
+      });
+
+      setBooks((prev) => [book, ...prev]);
+      setUploadTitle('');
+      setUploadAuthor('');
+      setSelectedFile(null);
+      setShowUpload(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload book');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleDelete(bookId: string) {
+    try {
+      await api.library.delete(bookId);
+      setBooks((prev) => prev.filter((b) => b.id !== bookId));
+      if (activeBook?.id === bookId) {
+        setActiveBook(null);
+        setActiveChapter(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete book');
+    }
+  }
+
+  async function openBook(bookId: string) {
+    try {
+      setIsLoadingChapter(true);
+      const detail = await api.library.get(bookId);
+      setActiveBook(detail);
+
+      // Load the current chapter
+      const chapter = await api.library.getChapter(bookId, detail.current_chapter);
+      setActiveChapter(chapter);
+    } catch (err: any) {
+      setError(err.message || 'Failed to open book');
+    } finally {
+      setIsLoadingChapter(false);
+    }
+  }
+
+  async function loadChapter(chapterNumber: number) {
+    if (!activeBook) return;
+    setIsLoadingChapter(true);
+    setShowToc(false);
+
+    try {
+      const chapter = await api.library.getChapter(activeBook.id, chapterNumber);
+      setActiveChapter(chapter);
+
+      // Update reading progress
+      await api.library.updateProgress(activeBook.id, chapterNumber);
+      setActiveBook((prev) => prev ? { ...prev, current_chapter: chapterNumber } : prev);
+
+      // Update book in list
+      setBooks((prev) =>
+        prev.map((b) =>
+          b.id === activeBook.id
+            ? { ...b, current_chapter: chapterNumber, reading_progress: Math.round((chapterNumber / activeBook.total_chapters) * 100) }
+            : b
+        )
+      );
+
+      // Scroll to top of reader
+      readerRef.current?.scrollTo(0, 0);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load chapter');
+    } finally {
+      setIsLoadingChapter(false);
+    }
+  }
+
+  function handleTextSelection() {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 10) {
+      setSelectedText(selection.toString().trim());
+    } else {
+      setSelectedText('');
+    }
+  }
+
+  function discussWithLincoln() {
+    if (!selectedText || !activeBook || !activeChapter) return;
+
+    // Store the excerpt in sessionStorage so Chat page can pick it up
+    const excerpt = {
+      text: selectedText.substring(0, 1000), // Cap at 1000 chars
+      bookTitle: activeBook.title,
+      bookAuthor: activeBook.author,
+      chapterTitle: activeChapter.title,
+      chapterNumber: activeChapter.chapter_number,
+    };
+    sessionStorage.setItem('lincoln-book-excerpt', JSON.stringify(excerpt));
+    navigate('/chat');
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  }
+
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const fileTypeIcon = (type: string) => {
+    switch (type) {
+      case 'pdf': return 'PDF';
+      case 'epub': return 'EPUB';
+      default: return 'TXT';
+    }
+  };
+
+  // ===== READER VIEW =====
+  if (activeBook && activeChapter) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        {/* Reader Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => { setActiveBook(null); setActiveChapter(null); setSelectedText(''); }}
+            className="flex items-center gap-2 text-vale-muted hover:text-vale-text transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            Back to Library
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowToc(!showToc)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-vale-card border border-vale-border rounded hover:border-vale-accent/50 transition-colors text-vale-muted hover:text-vale-text"
+            >
+              <List className="w-4 h-4" />
+              Chapters
+            </button>
+          </div>
+        </div>
+
+        {/* Book Title */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-vale-text">{activeBook.title}</h2>
+          {activeBook.author && <p className="text-vale-muted mt-1">by {activeBook.author}</p>}
+          <div className="flex items-center gap-4 mt-2">
+            <span className="text-xs text-vale-muted">
+              Chapter {activeChapter.chapter_number} of {activeBook.total_chapters}
+            </span>
+            <span className="text-xs text-vale-muted">
+              {activeChapter.word_count.toLocaleString()} words
+            </span>
+            {/* Progress bar */}
+            <div className="flex-1 max-w-48 h-1.5 bg-vale-card rounded-full overflow-hidden">
+              <div
+                className="h-full bg-vale-accent rounded-full transition-all"
+                style={{ width: `${Math.round((activeBook.current_chapter / activeBook.total_chapters) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Table of Contents Dropdown */}
+        {showToc && (
+          <div className="mb-6 bg-vale-surface border border-vale-border rounded-lg p-4 max-h-80 overflow-y-auto">
+            <h3 className="text-sm font-semibold text-vale-text mb-3">Table of Contents</h3>
+            <div className="space-y-1">
+              {activeBook.chapters.map((ch) => (
+                <button
+                  key={ch.chapter_number}
+                  onClick={() => loadChapter(ch.chapter_number)}
+                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                    ch.chapter_number === activeChapter.chapter_number
+                      ? 'bg-vale-accent/20 text-vale-accent'
+                      : 'text-vale-muted hover:text-vale-text hover:bg-vale-card'
+                  }`}
+                >
+                  <span className="font-medium">{ch.chapter_number}.</span> {ch.title}
+                  <span className="text-xs ml-2 opacity-60">{ch.word_count.toLocaleString()} words</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Chapter Content */}
+        <div
+          ref={readerRef}
+          className="bg-vale-surface border border-vale-border rounded-lg p-8 md:p-12 max-h-[calc(100vh-320px)] overflow-y-auto"
+          onMouseUp={handleTextSelection}
+        >
+          {isLoadingChapter ? (
+            <div className="text-center py-16">
+              <Loader2 className="w-8 h-8 text-vale-accent mx-auto animate-spin" />
+              <p className="text-vale-muted mt-3">Loading chapter...</p>
+            </div>
+          ) : (
+            <>
+              <h3 className="text-xl font-semibold text-vale-text mb-6">{activeChapter.title}</h3>
+              <div className="text-vale-text leading-relaxed whitespace-pre-wrap text-[15px] selection:bg-vale-accent/30">
+                {activeChapter.content}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Selected Text Floating Bar */}
+        {selectedText && (
+          <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 bg-vale-card border border-vale-accent/50 rounded-lg shadow-lg p-4 max-w-md z-40 animate-in fade-in slide-in-from-bottom-4">
+            <p className="text-xs text-vale-muted mb-2 line-clamp-2">"{selectedText.substring(0, 120)}..."</p>
+            <div className="flex gap-2">
+              <button
+                onClick={discussWithLincoln}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-vale-accent text-white text-sm rounded hover:bg-opacity-90 transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Discuss with Lincoln
+              </button>
+              <button
+                onClick={() => { navigator.clipboard.writeText(selectedText); setSelectedText(''); }}
+                className="px-3 py-1.5 text-vale-muted text-sm border border-vale-border rounded hover:text-vale-text transition-colors"
+              >
+                Copy
+              </button>
+              <button
+                onClick={() => setSelectedText('')}
+                className="px-2 py-1.5 text-vale-muted hover:text-vale-text transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Chapter Navigation */}
+        <div className="flex items-center justify-between mt-6">
+          <button
+            onClick={() => loadChapter(activeChapter.chapter_number - 1)}
+            disabled={activeChapter.chapter_number <= 1 || isLoadingChapter}
+            className="flex items-center gap-2 px-4 py-2 bg-vale-card border border-vale-border rounded-lg text-vale-text hover:border-vale-accent/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </button>
+
+          <span className="text-sm text-vale-muted">
+            {activeChapter.chapter_number} / {activeBook.total_chapters}
+          </span>
+
+          <button
+            onClick={() => loadChapter(activeChapter.chapter_number + 1)}
+            disabled={activeChapter.chapter_number >= activeBook.total_chapters || isLoadingChapter}
+            className="flex items-center gap-2 px-4 py-2 bg-vale-card border border-vale-border rounded-lg text-vale-text hover:border-vale-accent/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== LIBRARY GRID VIEW =====
+  return (
+    <div className="max-w-4xl space-y-8">
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300">
+          {error}
+          <button onClick={() => setError(null)} className="float-right text-red-400 hover:text-red-200">x</button>
+        </div>
+      )}
+
+      {/* Upload Form */}
+      {showUpload ? (
+        <div className="bg-vale-surface border border-vale-border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-vale-text flex items-center gap-2">
+              <Upload className="w-5 h-5 text-vale-accent" />
+              Add a Book
+            </h2>
+            <button onClick={() => setShowUpload(false)} className="text-vale-muted hover:text-vale-text">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleUpload} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-vale-text mb-2">Title *</label>
+              <input
+                type="text"
+                value={uploadTitle}
+                onChange={(e) => setUploadTitle(e.target.value)}
+                placeholder="Book title..."
+                className="w-full px-4 py-2 bg-vale-card border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent"
+                disabled={isUploading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-vale-text mb-2">Author</label>
+              <input
+                type="text"
+                value={uploadAuthor}
+                onChange={(e) => setUploadAuthor(e.target.value)}
+                placeholder="Author name..."
+                className="w-full px-4 py-2 bg-vale-card border border-vale-border rounded text-vale-text placeholder-vale-muted focus:outline-none focus:border-vale-accent"
+                disabled={isUploading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-vale-text mb-2">File (PDF, EPUB, or TXT) *</label>
+              <input
+                type="file"
+                accept=".pdf,.epub,.txt,.text"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    // Auto-fill title from filename if empty
+                    if (!uploadTitle) {
+                      const name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+                      setUploadTitle(name);
+                    }
+                  }
+                }}
+                className="w-full text-vale-text file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-vale-accent/20 file:text-vale-accent hover:file:bg-vale-accent/30"
+                disabled={isUploading}
+              />
+              {selectedFile && (
+                <p className="text-xs text-vale-muted mt-1">
+                  {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={!selectedFile || !uploadTitle.trim() || isUploading}
+              className="px-6 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading & Processing...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Upload Book
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowUpload(true)}
+          className="w-full py-4 border-2 border-dashed border-vale-border rounded-lg text-vale-muted hover:text-vale-accent hover:border-vale-accent/50 transition-colors flex items-center justify-center gap-2"
+        >
+          <Upload className="w-5 h-5" />
+          Add a Book
+        </button>
+      )}
+
+      {/* Book Grid */}
+      <div>
+        <h2 className="text-lg font-semibold text-vale-text mb-4">
+          Your Library {books.length > 0 && `(${books.length})`}
+        </h2>
+
+        {isLoading ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 text-vale-accent mx-auto animate-spin" />
+            <p className="text-vale-muted mt-2">Loading library...</p>
+          </div>
+        ) : books.length === 0 ? (
+          <div className="bg-vale-card border border-vale-border rounded-lg p-12 text-center">
+            <BookOpen className="w-16 h-16 text-vale-border mx-auto mb-4 opacity-50" />
+            <p className="text-vale-muted mb-2">Your library is empty</p>
+            <p className="text-sm text-vale-muted">
+              Upload a PDF, EPUB, or text file to start reading together
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {books.map((book) => (
+              <div
+                key={book.id}
+                className="group bg-vale-card border border-vale-border rounded-lg overflow-hidden hover:border-vale-accent/50 transition-colors cursor-pointer"
+                onClick={() => openBook(book.id)}
+              >
+                {/* Book Cover (colored placeholder) */}
+                <div
+                  className="aspect-[2/3] flex flex-col items-center justify-center p-4 relative"
+                  style={{ backgroundColor: book.cover_color || '#4A6FA5' }}
+                >
+                  <FileText className="w-8 h-8 text-white/40 mb-2" />
+                  <p className="text-white text-center text-sm font-semibold leading-tight line-clamp-3 px-2">
+                    {book.title}
+                  </p>
+                  {book.author && (
+                    <p className="text-white/70 text-xs mt-1 text-center line-clamp-1">{book.author}</p>
+                  )}
+
+                  {/* File type badge */}
+                  <span className="absolute top-2 right-2 bg-black/30 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    {fileTypeIcon(book.file_type)}
+                  </span>
+
+                  {/* Reading progress */}
+                  {book.reading_progress > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+                      <div
+                        className="h-full bg-white/80"
+                        style={{ width: `${book.reading_progress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-vale-muted">{book.total_chapters} ch.</span>
+                    <span className="text-xs text-vale-muted">{formatFileSize(book.file_size_bytes)}</span>
+                  </div>
+                  {book.reading_progress > 0 && (
+                    <p className="text-xs text-vale-accent mt-1">{book.reading_progress}% read</p>
+                  )}
+                  {/* Delete button — only visible on hover */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(book.id); }}
+                    className="mt-2 w-full py-1 text-xs text-vale-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>

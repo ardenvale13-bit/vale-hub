@@ -556,6 +556,50 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_user_time ON chat_messages(user_id,
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
+-- T) LIBRARY / BOOKS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS books (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  author TEXT,
+  file_type TEXT NOT NULL CHECK (file_type IN ('pdf', 'epub', 'txt')),
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL DEFAULT 0,
+  cover_color TEXT,
+  total_chapters INTEGER NOT NULL DEFAULT 1,
+  current_chapter INTEGER NOT NULL DEFAULT 1,
+  reading_progress INTEGER NOT NULL DEFAULT 0,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_books_user ON books(user_id, updated_at DESC);
+
+ALTER TABLE books ENABLE ROW LEVEL SECURITY;
+
+DROP TRIGGER IF EXISTS trg_books_updated_at ON books;
+CREATE TRIGGER trg_books_updated_at BEFORE UPDATE ON books FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS book_chapters (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+  chapter_number INTEGER NOT NULL,
+  title TEXT NOT NULL DEFAULT 'Untitled',
+  content TEXT NOT NULL,
+  word_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(book_id, chapter_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_book_chapters_book ON book_chapters(book_id, chapter_number);
+
+ALTER TABLE book_chapters ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- HEARTH SCHEMA COMPLETE
 -- Embers Remember.
 -- ============================================================

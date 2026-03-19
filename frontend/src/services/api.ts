@@ -449,6 +449,58 @@ const chat = {
     apiCall<{ success: boolean }>('/chat/history', 'DELETE'),
 };
 
+// ===== LIBRARY =====
+export interface LibraryBook {
+  id: string;
+  user_id: string;
+  title: string;
+  author?: string;
+  file_type: 'pdf' | 'epub' | 'txt';
+  file_name: string;
+  file_size_bytes: number;
+  cover_color?: string;
+  total_chapters: number;
+  current_chapter: number;
+  reading_progress: number;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BookChapter {
+  id: string;
+  book_id: string;
+  chapter_number: number;
+  title: string;
+  content: string;
+  word_count: number;
+  created_at: string;
+}
+
+export interface BookDetail extends LibraryBook {
+  chapters: { chapter_number: number; title: string; word_count: number }[];
+}
+
+const library = {
+  list: () =>
+    apiCall<LibraryBook[]>('/library'),
+
+  get: (bookId: string) =>
+    apiCall<BookDetail>(`/library/${bookId}`),
+
+  upload: (file: string, options: { title: string; author?: string; filename: string; mimeType: string }) =>
+    apiCall<LibraryBook>('/library/upload', 'POST', { file, ...options }),
+
+  getChapter: (bookId: string, chapterNumber: number) =>
+    apiCall<BookChapter>(`/library/${bookId}/chapters/${chapterNumber}`),
+
+  updateProgress: (bookId: string, currentChapter: number) =>
+    apiCall<LibraryBook>(`/library/${bookId}/progress`, 'PUT', { currentChapter }),
+
+  delete: (bookId: string) =>
+    apiCall<void>(`/library/${bookId}`, 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -463,4 +515,5 @@ export const api = {
   images,
   discord,
   chat,
+  library,
 };
