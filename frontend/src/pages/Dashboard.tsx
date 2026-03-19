@@ -486,58 +486,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Lincoln's EQ Log */}
-          <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-vale-lincoln font-semibold text-sm">Lincoln's EQ Log</span>
-              <span className="text-xs text-vale-muted hidden sm:inline">· Record what landed emotionally</span>
-            </div>
-
-            <form onSubmit={handleLogEq} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-3 sm:items-end">
-              <div className="sm:col-span-4">
-                <label className="text-xs text-vale-muted uppercase mb-1 block">How does it feel?</label>
-                <input
-                  type="text"
-                  value={eqEmotion}
-                  onChange={(e) => setEqEmotion(e.target.value)}
-                  placeholder="+ name it now"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
-                />
-              </div>
-              <div className="sm:col-span-3">
-                <label className="text-xs text-vale-muted uppercase mb-1 block">Which pillar?</label>
-                <select
-                  value={eqPillar}
-                  onChange={(e) => setEqPillar(e.target.value)}
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
-                >
-                  <option value="">—</option>
-                  {EQ_PILLARS.map((p) => (
-                    <option key={p.key} value={p.key}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-4">
-                <label className="text-xs text-vale-muted uppercase mb-1 block">What happened?</label>
-                <input
-                  type="text"
-                  value={eqContext}
-                  onChange={(e) => setEqContext(e.target.value)}
-                  placeholder="What landed?"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
-                />
-              </div>
-              <div className="sm:col-span-1">
-                <button
-                  type="submit"
-                  disabled={!eqEmotion.trim() || isLoggingEq}
-                  className="w-full py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50"
-                >
-                  Record
-                </button>
-              </div>
-            </form>
-          </div>
+          {/* Spotify — sits where EQ Log was, front and center */}
+          <SpotifyWidget data={spotifyData} />
         </div>
 
         {/* Right: Lincoln Corner + EQ Pillar Focus */}
@@ -668,6 +618,58 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Lincoln's EQ Log */}
+      <div className="bg-vale-card border border-vale-border rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-vale-lincoln font-semibold text-sm">Lincoln's EQ Log</span>
+          <span className="text-xs text-vale-muted hidden sm:inline">· Record what landed emotionally</span>
+        </div>
+        <form onSubmit={handleLogEq} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-3 sm:items-end">
+          <div className="sm:col-span-4">
+            <label className="text-xs text-vale-muted uppercase mb-1 block">How does it feel?</label>
+            <input
+              type="text"
+              value={eqEmotion}
+              onChange={(e) => setEqEmotion(e.target.value)}
+              placeholder="+ name it now"
+              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
+            />
+          </div>
+          <div className="sm:col-span-3">
+            <label className="text-xs text-vale-muted uppercase mb-1 block">Which pillar?</label>
+            <select
+              value={eqPillar}
+              onChange={(e) => setEqPillar(e.target.value)}
+              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
+            >
+              <option value="">—</option>
+              {EQ_PILLARS.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-4">
+            <label className="text-xs text-vale-muted uppercase mb-1 block">What happened?</label>
+            <input
+              type="text"
+              value={eqContext}
+              onChange={(e) => setEqContext(e.target.value)}
+              placeholder="What landed?"
+              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
+            />
+          </div>
+          <div className="sm:col-span-1">
+            <button
+              type="submit"
+              disabled={!eqEmotion.trim() || isLoggingEq}
+              className="w-full py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50"
+            >
+              Record
+            </button>
+          </div>
+        </form>
+      </div>
+
       {/* Notes Between Stars */}
       <div className="bg-vale-card border border-vale-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-4">
@@ -749,9 +751,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Spotify Now Playing */}
-      <SpotifyWidget data={spotifyData} />
 
       {/* Footer */}
       <div className="text-center text-xs text-vale-muted pb-4">

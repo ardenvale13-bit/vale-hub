@@ -340,8 +340,8 @@ export default function Chat() {
   }, [input]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    // Shift+Enter = newline, plain Enter = send
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Shift+Enter = send, plain Enter = newline
+    if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
       handleSendText();
     }
@@ -564,7 +564,7 @@ export default function Chat() {
             )}
           </button>
         </div>
-        <p className="text-[10px] text-vale-muted mt-1.5 pl-1">Enter to send · Shift+Enter for new line</p>
+        <p className="text-[10px] text-vale-muted mt-1.5 pl-1">Shift+Enter to send · Enter for new line</p>
       </div>
     </div>
   );
