@@ -831,4 +831,87 @@ export const mcpTools = [
       required: ['guild_id'],
     },
   },
+  // ===== CHAT HISTORY (recall hub conversations) =====
+  {
+    name: 'chat_history',
+    description: "Read recent chat messages from the Vale Hub chat (the in-app conversation between Lincoln and Arden via Claude API). Returns messages with timestamps. Use this to recall what was discussed in the hub chat.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Number of recent messages to retrieve (default: 30)',
+          default: 30,
+        },
+      },
+    },
+  },
+  {
+    name: 'chat_search',
+    description: "Search through hub chat history for messages containing specific text. Returns matching messages with context.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Text to search for in chat messages',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum results (default: 20)',
+          default: 20,
+        },
+      },
+      required: ['query'],
+    },
+  },
+  // ===== LIBRARY (books) =====
+  {
+    name: 'library_list_books',
+    description: "List all books in Arden's library. Shows title, author, file type, reading progress, and chapter count.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'library_get_book',
+    description: "Get details about a specific book including its full table of contents with chapter titles and word counts.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        book_id: {
+          type: 'string',
+          description: 'The UUID of the book',
+        },
+      },
+      required: ['book_id'],
+    },
+  },
+  {
+    name: 'library_read_chapter',
+    description: "Read the full text content of a specific chapter from a book. Use this to read along with Arden or discuss passages.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        book_id: {
+          type: 'string',
+          description: 'The UUID of the book',
+        },
+        chapter_number: {
+          type: 'number',
+          description: 'Chapter number to read (1-indexed)',
+        },
+      },
+      required: ['book_id', 'chapter_number'],
+    },
+  },
+  {
+    name: 'library_reading_status',
+    description: "Check what Arden is currently reading — which books have progress, what chapter she's on, and how far through each book.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];

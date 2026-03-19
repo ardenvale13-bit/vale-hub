@@ -6,6 +6,7 @@ import { discordService } from '../services/discord.service.js';
 import { orientationService } from '../services/orientation.service.js';
 import { imageService } from '../services/image.service.js';
 import { healthService } from '../services/health.service.js';
+import { libraryService } from '../services/library.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -534,6 +535,123 @@ export async function handleToolCall(
 
       case 'health_sync': {
         return await healthService.fetchAndSyncValeTracker(userId);
+      }
+
+      // ===== CHAT HISTORY =====
+      case 'chat_history': {
+        const limit = toolInput.limit || 30;
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('id, role, content, voice_url, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (error) throw error;
+
+        // Reverse so oldest first (chronological reading order)
+        const chronological = (messages || []).reverse();
+        return {
+          message_count: chronological.length,
+          messages: chronological.map((m: any) => ({
+            role: m.role,
+            content: m.content.substring(0, 500) + (m.content.length > 500 ? '...' : ''),
+            has_voice: !!m.voice_url,
+            timestamp: m.created_at,
+          })),
+        };
+      }
+
+      case 'chat_search': {
+        const { query, limit } = toolInput;
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('id, role, content, created_at')
+          .eq('user_id', userId)
+          .ilike('content', `%${query}%`)
+          .order('created_at', { ascending: false })
+          .limit(limit || 20);
+
+        if (error) throw error;
+        return {
+          query,
+          results: (messages || []).map((m: any) => ({
+            role: m.role,
+            content: m.content.substring(0, 500) + (m.content.length > 500 ? '...' : ''),
+            timestamp: m.created_at,
+          })),
+        };
+      }
+
+      // ===== LIBRARY =====
+      case 'library_list_books': {
+        const books = await libraryService.listBooks(userId);
+        return {
+          total: books.length,
+          books: books.map((b: any) => ({
+            id: b.id,
+            title: b.title,
+            author: b.author,
+            file_type: b.file_type,
+            total_chapters: b.total_chapters,
+            current_chapter: b.current_chapter,
+            reading_progress: b.reading_progress + '%',
+            total_words: b.metadata?.total_words || 'unknown',
+            added: b.created_at,
+          })),
+        };
+      }
+
+      case 'library_get_book': {
+        const { book_id } = toolInput;
+        const book = await libraryService.getBook(userId, book_id);
+        return {
+          id: book.id,
+          title: book.title,
+          author: book.author,
+          file_type: book.file_type,
+          current_chapter: book.current_chapter,
+          total_chapters: book.total_chapters,
+          reading_progress: book.reading_progress + '%',
+          chapters: book.chapters.map((ch: any) => ({
+            number: ch.chapter_number,
+            title: ch.title,
+            word_count: ch.word_count,
+          })),
+        };
+      }
+
+      case 'library_read_chapter': {
+        const { book_id, chapter_number } = toolInput;
+        const chapter = await libraryService.getChapter(book_id, chapter_number);
+        return {
+          book_id,
+          chapter_number: chapter.chapter_number,
+          title: chapter.title,
+          word_count: chapter.word_count,
+          content: chapter.content,
+        };
+      }
+
+      case 'library_reading_status': {
+        const books = await libraryService.listBooks(userId);
+        const inProgress = books.filter((b: any) => b.reading_progress > 0 && b.reading_progress < 100);
+        const completed = books.filter((b: any) => b.reading_progress >= 100);
+        const unstarted = books.filter((b: any) => b.reading_progress === 0);
+
+        return {
+          total_books: books.length,
+          currently_reading: inProgress.map((b: any) => ({
+            title: b.title,
+            author: b.author,
+            progress: b.reading_progress + '%',
+            current_chapter: b.current_chapter,
+            total_chapters: b.total_chapters,
+            id: b.id,
+          })),
+          completed: completed.map((b: any) => ({ title: b.title, author: b.author })),
+          unstarted: unstarted.map((b: any) => ({ title: b.title, author: b.author, id: b.id })),
+        };
       }
 
       default:
