@@ -18,10 +18,10 @@ async function getStoredTokens(): Promise<{ access_token?: string; refresh_token
   const env = getEnv();
   const supabase = getSupabaseClient();
   const { data } = await supabase
-    .from('identity')
+    .from('identity_store')
     .select('key, value')
     .eq('user_id', env.SINGLE_USER_ID)
-    .eq('perspective', 'system')
+    .eq('owner_perspective', 'system')
     .eq('category', 'spotify')
     .in('key', ['access_token', 'refresh_token', 'expires_at']);
 
@@ -37,15 +37,26 @@ async function storeTokens(accessToken: string, refreshToken: string | null, exp
   const expiresAt = Date.now() + expiresIn * 1000;
 
   const upserts = [
-    { user_id: env.SINGLE_USER_ID, perspective: 'system', category: 'spotify', key: 'access_token', value: accessToken },
-    { user_id: env.SINGLE_USER_ID, perspective: 'system', category: 'spotify', key: 'expires_at', value: expiresAt.toString() },
+    { user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'access_token', value: accessToken },
+    { user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'expires_at', value: expiresAt.toString() },
   ];
   if (refreshToken) {
-    upserts.push({ user_id: env.SINGLE_USER_ID, perspective: 'system', category: 'spotify', key: 'refresh_token', value: refreshToken });
+    upserts.push({ user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'refresh_token', value: refreshToken });
   }
 
   for (const row of upserts) {
-    await supabase.from('identity').upsert(row, { onConflict: 'user_id,perspective,category,key' });
+    const { error } = await supabase.from('identity_store').upsert(row, { onConflict: 'user_id,owner_perspective,category,key' });
+    if (error) {
+      console.warn('Upsert failed, trying delete+insert:', error.message);
+      await supabase.from('identity_store')
+        .delete()
+        .eq('user_id', row.user_id)
+        .eq('owner_perspective', row.owner_perspective)
+        .eq('category', row.category)
+        .eq('key', row.key);
+      const { error: insertError } = await supabase.from('identity_store').insert(row);
+      if (insertError) console.error('Insert also failed:', insertError.message);
+    }
   }
 }
 
@@ -144,16 +155,21 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     if (!tokenRes.ok) {
       const err = await tokenRes.text();
-      throw new Error(err);
+      console.error('Spotify token exchange failed:', tokenRes.status, err);
+      throw new Error(`Token exchange failed (${tokenRes.status}): ${err}`);
     }
 
     const tokenData = await tokenRes.json() as any;
+    console.log('Spotify token received, has refresh_token:', !!tokenData.refresh_token);
     await storeTokens(tokenData.access_token, tokenData.refresh_token, tokenData.expires_in || 3600);
+    console.log('Spotify tokens stored successfully');
 
     // Redirect to frontend dashboard
     const frontendUrl = env.FRONTEND_URL || 'https://vale-hub.vercel.app';
+    console.log('Redirecting to:', `${frontendUrl}/?spotify=connected`);
     return res.redirect(`${frontendUrl}/?spotify=connected`);
   } catch (err: any) {
+    console.error('Spotify callback error:', err);
     const frontendUrl = env.FRONTEND_URL || 'https://vale-hub.vercel.app';
     return res.send(`<html><body style="background:#2c2151;color:#e8e0f0;font-family:sans-serif;padding:2rem">
       <h2>Spotify auth error</h2><p>${err.message}</p>
@@ -252,10 +268,10 @@ router.delete('/disconnect', async (_req: Request, res: Response) => {
   const env = getEnv();
   const supabase = getSupabaseClient();
   await supabase
-    .from('identity')
+    .from('identity_store')
     .delete()
     .eq('user_id', env.SINGLE_USER_ID)
-    .eq('perspective', 'system')
+    .eq('owner_perspective', 'system')
     .eq('category', 'spotify');
   return res.json({ ok: true });
 });
