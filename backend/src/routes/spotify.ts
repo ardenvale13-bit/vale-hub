@@ -119,9 +119,10 @@ router.get('/callback', async (req: Request, res: Response) => {
   const { code, error } = req.query;
 
   if (error || !code) {
+    const frontendUrl = env.FRONTEND_URL || 'https://vale-hub.vercel.app';
     return res.send(`<html><body style="background:#2c2151;color:#e8e0f0;font-family:sans-serif;padding:2rem">
       <h2>Spotify auth failed</h2><p>${error || 'No code received'}</p>
-      <p><a href="/" style="color:#e5b2e6">Return to Vale Hub</a></p>
+      <p><a href="${frontendUrl}" style="color:#e5b2e6">Return to Vale Hub</a></p>
     </body></html>`);
   }
 
@@ -149,12 +150,14 @@ router.get('/callback', async (req: Request, res: Response) => {
     const tokenData = await tokenRes.json() as any;
     await storeTokens(tokenData.access_token, tokenData.refresh_token, tokenData.expires_in || 3600);
 
-    // Redirect to dashboard with success flag
-    return res.redirect('/?spotify=connected');
+    // Redirect to frontend dashboard
+    const frontendUrl = env.FRONTEND_URL || 'https://vale-hub.vercel.app';
+    return res.redirect(`${frontendUrl}/?spotify=connected`);
   } catch (err: any) {
+    const frontendUrl = env.FRONTEND_URL || 'https://vale-hub.vercel.app';
     return res.send(`<html><body style="background:#2c2151;color:#e8e0f0;font-family:sans-serif;padding:2rem">
       <h2>Spotify auth error</h2><p>${err.message}</p>
-      <p><a href="/" style="color:#e5b2e6">Return to Vale Hub</a></p>
+      <p><a href="${frontendUrl}" style="color:#e5b2e6">Return to Vale Hub</a></p>
     </body></html>`);
   }
 });

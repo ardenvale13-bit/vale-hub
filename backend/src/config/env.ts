@@ -24,6 +24,7 @@ const envSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string().optional(),
   SPOTIFY_CLIENT_SECRET: z.string().optional(),
   SPOTIFY_REDIRECT_URI: z.string().optional(),
+  FRONTEND_URL: z.string().optional(), // e.g. https://vale-hub.vercel.app
   CORS_ORIGIN: z.string().default('http://localhost:5173'), // Comma-separated for multiple origins
 });
 
