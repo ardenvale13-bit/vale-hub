@@ -1,3 +1,4 @@
+import OpenAI, { toFile } from 'openai';
 import { getSupabaseClient } from '../config/supabase.js';
 import { getEnv } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -184,7 +185,7 @@ class ChatService {
   }
 
   /**
-   * Transcribe audio using OpenAI Whisper API
+   * Transcribe audio using OpenAI Whisper API via SDK
    */
   async transcribeAudio(audioBuffer: Buffer, mimeType: string = 'audio/webm'): Promise<string> {
     const env = getEnv();
@@ -193,51 +194,33 @@ class ChatService {
       throw new AppError(503, 'OPENAI_API_KEY is not configured. Needed for Whisper transcription.');
     }
 
-    // Build multipart form data manually
-    const boundary = '----FormBoundary' + Date.now();
-    const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'wav';
-    const filename = `audio.${ext}`;
+    const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-    const parts: Buffer[] = [];
+    // Determine file extension from mime type
+    const ext = mimeType.includes('webm') ? 'webm'
+      : mimeType.includes('mp4') ? 'mp4'
+      : mimeType.includes('wav') ? 'wav'
+      : mimeType.includes('ogg') ? 'ogg'
+      : 'webm';
 
-    // File part
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mimeType}\r\n\r\n`
-    ));
-    parts.push(audioBuffer);
-    parts.push(Buffer.from('\r\n'));
+    console.log('[Chat] Transcribing audio:', audioBuffer.length, 'bytes,', mimeType);
 
-    // Model part
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n`
-    ));
+    try {
+      // Use toFile helper for cross-Node-version compatibility
+      const file = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType });
 
-    // Language part
-    parts.push(Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\nen\r\n`
-    ));
+      const transcription = await openai.audio.transcriptions.create({
+        file,
+        model: 'whisper-1',
+        language: 'en',
+      });
 
-    // End boundary
-    parts.push(Buffer.from(`--${boundary}--\r\n`));
-
-    const body = Buffer.concat(parts);
-
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      },
-      body,
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      throw new AppError(response.status, `Whisper transcription failed: ${errBody}`);
+      console.log('[Chat] Transcription result:', transcription.text?.slice(0, 100));
+      return transcription.text || '';
+    } catch (err: any) {
+      console.error('[Chat] Whisper error:', err?.message || err);
+      throw new AppError(err?.status || 500, `Whisper transcription failed: ${err?.message || 'unknown error'}`);
     }
-
-    const data = await response.json();
-    return data.text || '';
   }
 
   /**

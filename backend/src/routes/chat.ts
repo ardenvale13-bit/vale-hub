@@ -38,9 +38,10 @@ router.post('/voice', async (req: AuthenticatedRequest, res) => {
       throw new AppError(400, 'Missing required field: audio (base64 encoded)');
     }
 
-    // Decode base64 audio
-    const audioClean = audio.replace(/^data:audio\/\w+;base64,/, '');
+    // Decode base64 audio — handle data URIs with codecs like "data:audio/webm;codecs=opus;base64,"
+    const audioClean = audio.replace(/^data:audio\/[^;]+;(codecs=[^;]+;)?base64,/, '');
     const audioBuffer = Buffer.from(audioClean, 'base64');
+    console.log('[Chat/voice] Audio buffer size:', audioBuffer.length, 'bytes, mimeType:', mimeType);
 
     // Transcribe with Whisper
     const transcription = await chatService.transcribeAudio(audioBuffer, mimeType || 'audio/webm');
