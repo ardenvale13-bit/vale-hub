@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getEnv } from '../config/env.js';
-import { supabase } from '../config/supabase.js';
+import { getSupabaseClient } from '../config/supabase.js';
 
 const router = Router();
 
@@ -16,6 +16,7 @@ function getSpotifyBasicAuth(): string {
 
 async function getStoredTokens(): Promise<{ access_token?: string; refresh_token?: string; expires_at?: number } | null> {
   const env = getEnv();
+  const supabase = getSupabaseClient();
   const { data } = await supabase
     .from('identity')
     .select('key, value')
@@ -32,6 +33,7 @@ async function getStoredTokens(): Promise<{ access_token?: string; refresh_token
 
 async function storeTokens(accessToken: string, refreshToken: string | null, expiresIn: number) {
   const env = getEnv();
+  const supabase = getSupabaseClient();
   const expiresAt = Date.now() + expiresIn * 1000;
 
   const upserts = [
@@ -245,6 +247,7 @@ router.get('/status', async (_req: Request, res: Response) => {
 // DELETE /api/spotify/disconnect — remove stored tokens
 router.delete('/disconnect', async (_req: Request, res: Response) => {
   const env = getEnv();
+  const supabase = getSupabaseClient();
   await supabase
     .from('identity')
     .delete()

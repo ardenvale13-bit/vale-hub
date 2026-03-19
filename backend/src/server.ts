@@ -215,11 +215,12 @@ app.use('/api/push', apiKeyAuth, pushRouter);
 app.use('/api/health', apiKeyAuth, healthRouter);
 app.use('/api/chat', apiKeyAuth, chatRouter);
 app.use('/api/library', apiKeyAuth, libraryRouter);
-// Spotify: /auth and /callback are public (browser redirects) — no apiKeyAuth
-// Other endpoints (/now-playing, /status, /disconnect) use apiKeyAuth
-app.get('/api/spotify/auth', spotifyRouter);
-app.get('/api/spotify/callback', spotifyRouter);
-app.use('/api/spotify', apiKeyAuth, spotifyRouter);
+// Spotify: /auth and /callback are public (no API key — browser OAuth redirects)
+// All other spotify endpoints require apiKeyAuth
+app.use('/api/spotify', (req, res, next) => {
+  if (req.path === '/auth' || req.path === '/callback') return next();
+  return apiKeyAuth(req, res, next);
+}, spotifyRouter);
 
 app.use(errorHandler);
 
