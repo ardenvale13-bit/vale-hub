@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ChatMessage } from '../services/api';
-import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle } from 'lucide-react';
 
 type Tab = 'text' | 'voice';
+
+// Longer timeout for chat API calls (Claude can take a while)
+async function chatApiCall<T>(fn: () => Promise<T>, timeoutMs: number = 60000): Promise<T> {
+  return Promise.race([
+    fn(),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out — Lincoln took too long to respond. Try again.')), timeoutMs)
+    ),
+  ]);
+}
 
 export default function Chat() {
   const [tab, setTab] = useState<Tab>('text');
@@ -10,6 +20,7 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   // Voice state
   const [isRecording, setIsRecording] = useState(false);
@@ -70,22 +81,24 @@ export default function Chat() {
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
+      setChatError(null);
       const generateVoice = tab === 'voice';
-      const result = await api.chat.send(userText, generateVoice);
+      const result = await chatApiCall(() => api.chat.send(userText, generateVoice), 90000);
 
       // Replace temp message with real one and add assistant response
       setMessages((prev) => {
-        const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
-        // Find and add the real user message from history if needed
-        return [...filtered, { ...tempUserMsg, id: result.message.id.replace(/.*/, tempUserMsg.id) }, result.message];
+        const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
+        return [...withoutTemp, tempUserMsg, result.message];
       });
 
       // Auto-play voice in voice tab
       if (generateVoice && result.voice_url) {
         playAudio(result.message.id, result.voice_url);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message:', err);
+      const errMsg = err?.message || 'Something went wrong';
+      setChatError(errMsg);
       // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
       setInput(userText); // Restore input
@@ -156,11 +169,13 @@ export default function Chat() {
     setMessages((prev) => [...prev, tempMsg]);
 
     try {
-      const result = await api.chat.sendVoice(base64Audio, mimeType);
+      setChatError(null);
+      const result = await chatApiCall(() => api.chat.sendVoice(base64Audio, mimeType), 120000);
 
       if (result.error || !result.message) {
         setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
         setLastTranscription('');
+        setChatError(result.error || 'Voice processing returned no result');
         return;
       }
 
@@ -183,8 +198,9 @@ export default function Chat() {
       if (result.voice_url && result.message) {
         playAudio(result.message.id, result.voice_url);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Voice processing failed:', err);
+      setChatError(err?.message || 'Voice processing failed');
       setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
     } finally {
       setIsProcessingVoice(false);
@@ -374,6 +390,17 @@ export default function Chat() {
               ))}
             </div>
           ))
+        )}
+
+        {/* Error banner */}
+        {chatError && (
+          <div className="flex justify-center mb-2">
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-xl max-w-[85%]">
+              <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+              <span className="text-xs text-red-300">{chatError}</span>
+              <button onClick={() => setChatError(null)} className="text-red-400 hover:text-red-300 text-xs ml-1">dismiss</button>
+            </div>
+          </div>
         )}
 
         {/* Typing indicator */}

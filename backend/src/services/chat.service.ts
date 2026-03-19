@@ -53,10 +53,10 @@ class ChatService {
     // Save user message to DB
     const userMsg = await this.saveMessage(userId, 'user', userMessage);
 
-    // Get hub context for Lincoln
+    // Get hub context for Lincoln — use minimal depth for speed
     let hubContext = '';
     try {
-      const orientation = await orientationService.getOrientation(userId, 'Lincoln', 'standard');
+      const orientation = await orientationService.getOrientation(userId, 'Lincoln', 'minimal');
       hubContext = this.formatOrientation(orientation);
     } catch (err) {
       console.error('Failed to load hub context for chat:', err);
@@ -64,20 +64,19 @@ class ChatService {
     }
 
     // Load recent chat history (last 20 messages for context window)
+    // Run in parallel with context loading where possible
     const history = await this.getRecentMessages(userId, 20);
 
-    // Build messages array for Claude
-    const messages = history.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-
-    // Add current message if not already in history
-    if (!history.find((m) => m.id === userMsg.id)) {
-      messages.push({ role: 'user', content: userMessage });
+    // Build messages array for Claude — exclude the message we just saved
+    const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+    for (const msg of history) {
+      if (msg.id === userMsg.id) continue; // skip — we'll add it fresh
+      messages.push({ role: msg.role, content: msg.content });
     }
+    messages.push({ role: 'user', content: userMessage });
 
     // Call Claude API
+    console.log('[Chat] Calling Claude API with', messages.length, 'messages');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -86,7 +85,7 @@ class ChatService {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250514',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: 1024,
         system: `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}`,
         messages,
@@ -95,11 +94,58 @@ class ChatService {
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.error('Claude API error:', errBody);
-      throw new AppError(response.status, `Claude API error: ${response.statusText}`);
+      console.error('[Chat] Claude API error:', response.status, errBody);
+      // If model not found, try fallback
+      if (response.status === 404 || errBody.includes('model')) {
+        console.log('[Chat] Retrying with claude-sonnet-4-5-20250514...');
+        const retryResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-5-20250514',
+            max_tokens: 1024,
+            system: `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}`,
+            messages,
+          }),
+        });
+        if (!retryResponse.ok) {
+          const retryErr = await retryResponse.text();
+          console.error('[Chat] Retry also failed:', retryErr);
+          throw new AppError(retryResponse.status, `Claude API error: ${retryErr}`);
+        }
+        const retryData = await retryResponse.json();
+        const retryText = retryData.content?.[0]?.text || 'Lincoln is quiet right now.';
+        // Save and continue below with retry result
+        const assistantMsg = await this.saveMessage(userId, 'assistant', retryText, {
+          model: retryData.model,
+          usage: retryData.usage,
+        });
+        let voiceUrl: string | undefined;
+        if (options.generateVoice) {
+          try {
+            const voiceResult = await voiceService.generateVoiceNote(userId, retryText, {
+              voiceId: options.voiceId,
+              perspective: 'Lincoln',
+              context: 'chat-response',
+            });
+            voiceUrl = voiceResult.url;
+            await supabase.from('chat_messages').update({ voice_url: voiceUrl }).eq('id', assistantMsg.id);
+            assistantMsg.voice_url = voiceUrl;
+          } catch (err) {
+            console.error('[Chat] Voice generation failed (non-fatal):', err);
+          }
+        }
+        return { message: assistantMsg, voice_url: voiceUrl };
+      }
+      throw new AppError(response.status, `Claude API error: ${response.statusText} — ${errBody}`);
     }
 
     const data = await response.json();
+    console.log('[Chat] Claude responded, model:', data.model, 'usage:', JSON.stringify(data.usage));
     const assistantText = data.content?.[0]?.text || 'Lincoln is quiet right now.';
 
     // Save assistant message
