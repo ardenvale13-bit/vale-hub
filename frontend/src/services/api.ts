@@ -412,6 +412,43 @@ const discord = {
     apiCall<{ reacted: boolean }>('/discord/react', 'POST', { channel_id, message_id, emoji }),
 };
 
+// ===== CHAT =====
+export interface ChatMessage {
+  id: string;
+  user_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  voice_url?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface ChatResponse {
+  message: ChatMessage;
+  voice_url?: string;
+}
+
+export interface VoiceChatResponse {
+  transcription: string;
+  message: ChatMessage | null;
+  voice_url: string | null;
+  error?: string;
+}
+
+const chat = {
+  send: (message: string, generateVoice?: boolean, voiceId?: string) =>
+    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId }),
+
+  sendVoice: (audio: string, mimeType?: string, voiceId?: string) =>
+    apiCall<VoiceChatResponse>('/chat/voice', 'POST', { audio, mimeType, voiceId }),
+
+  history: (limit?: number, before?: string) =>
+    apiCall<ChatMessage[]>(`/chat/history?limit=${limit || 50}${before ? '&before=' + before : ''}`),
+
+  clearHistory: () =>
+    apiCall<{ success: boolean }>('/chat/history', 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -425,4 +462,5 @@ export const api = {
   voice,
   images,
   discord,
+  chat,
 };

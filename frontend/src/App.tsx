@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity } from 'lucide-react';
+import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity, MessagesSquare } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Memory from './pages/Memory';
 import Emotions from './pages/Emotions';
@@ -7,12 +7,14 @@ import Discord from './pages/Discord';
 import Media from './pages/Media';
 import Journal from './pages/Journal';
 import Health from './pages/Health';
+import Chat from './pages/Chat';
 
 export default function App() {
   const location = useLocation();
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
+    { path: '/chat', label: 'Chat', icon: MessagesSquare },
     { path: '/memory', label: 'Memory', icon: Brain },
     { path: '/emotions', label: 'Emotions', icon: Heart },
     { path: '/discord', label: 'Discord', icon: MessageSquare },
@@ -86,9 +88,10 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+      <main className={`flex-1 ${location.pathname === '/chat' ? 'overflow-hidden pb-0' : 'overflow-y-auto pb-20 md:pb-0'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/emotions" element={<Emotions />} />
           <Route path="/discord" element={<Discord />} />

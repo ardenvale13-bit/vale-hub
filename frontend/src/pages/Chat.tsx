@@ -1,0 +1,466 @@
+import { useState, useEffect, useRef } from 'react';
+import { api, ChatMessage } from '../services/api';
+import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone } from 'lucide-react';
+
+type Tab = 'text' | 'voice';
+
+export default function Chat() {
+  const [tab, setTab] = useState<Tab>('text');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Voice state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingVoice, setIsProcessingVoice] = useState(false);
+  const [lastTranscription, setLastTranscription] = useState('');
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  // Audio playback
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  function scrollToBottom() {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  async function loadHistory() {
+    setIsLoadingHistory(true);
+    try {
+      const history = await api.chat.history(50);
+      setMessages(history);
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }
+
+  // ===== TEXT CHAT =====
+  async function handleSendText(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!input.trim() || isSending) return;
+
+    const userText = input.trim();
+    setInput('');
+    setIsSending(true);
+
+    // Optimistic add
+    const tempUserMsg: ChatMessage = {
+      id: 'temp-' + Date.now(),
+      user_id: '',
+      role: 'user',
+      content: userText,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempUserMsg]);
+
+    try {
+      const generateVoice = tab === 'voice';
+      const result = await api.chat.send(userText, generateVoice);
+
+      // Replace temp message with real one and add assistant response
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
+        // Find and add the real user message from history if needed
+        return [...filtered, { ...tempUserMsg, id: result.message.id.replace(/.*/, tempUserMsg.id) }, result.message];
+      });
+
+      // Auto-play voice in voice tab
+      if (generateVoice && result.voice_url) {
+        playAudio(result.message.id, result.voice_url);
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
+      setInput(userText); // Restore input
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  // ===== VOICE RECORDING =====
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm',
+      });
+
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach((t) => t.stop());
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+
+        // Convert to base64
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(audioBlob);
+        });
+
+        await processVoiceMessage(base64, mediaRecorder.mimeType);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error('Mic access denied:', err);
+      alert('Microphone access is needed for voice chat. Please allow mic permissions.');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  }
+
+  async function processVoiceMessage(base64Audio: string, mimeType: string) {
+    setIsProcessingVoice(true);
+
+    // Optimistic "processing" message
+    const tempMsg: ChatMessage = {
+      id: 'voice-temp-' + Date.now(),
+      user_id: '',
+      role: 'user',
+      content: 'Listening...',
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempMsg]);
+
+    try {
+      const result = await api.chat.sendVoice(base64Audio, mimeType);
+
+      if (result.error || !result.message) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+        setLastTranscription('');
+        return;
+      }
+
+      setLastTranscription(result.transcription);
+
+      // Replace temp with real messages
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => m.id !== tempMsg.id);
+        const userMsg: ChatMessage = {
+          id: 'voice-user-' + Date.now(),
+          user_id: '',
+          role: 'user',
+          content: result.transcription,
+          created_at: new Date().toISOString(),
+        };
+        return [...filtered, userMsg, result.message!];
+      });
+
+      // Auto-play Lincoln's voice response
+      if (result.voice_url && result.message) {
+        playAudio(result.message.id, result.voice_url);
+      }
+    } catch (err) {
+      console.error('Voice processing failed:', err);
+      setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+    } finally {
+      setIsProcessingVoice(false);
+    }
+  }
+
+  // ===== AUDIO PLAYBACK =====
+  function playAudio(messageId: string, url: string) {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    setPlayingAudioId(messageId);
+
+    audio.onended = () => setPlayingAudioId(null);
+    audio.onerror = () => setPlayingAudioId(null);
+    audio.play().catch(() => setPlayingAudioId(null));
+  }
+
+  function stopAudio() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingAudioId(null);
+  }
+
+  // ===== CLEAR HISTORY =====
+  async function handleClearHistory() {
+    if (!confirm('Clear all chat history with Lincoln?')) return;
+    try {
+      await api.chat.clearHistory();
+      setMessages([]);
+    } catch (err) {
+      console.error('Failed to clear history:', err);
+    }
+  }
+
+  // ===== FORMAT TIME =====
+  function formatTime(dateStr: string) {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatDate(dateStr: string) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  // Group messages by date
+  function groupByDate(msgs: ChatMessage[]) {
+    const groups: { date: string; messages: ChatMessage[] }[] = [];
+    let currentDate = '';
+
+    for (const msg of msgs) {
+      const date = formatDate(msg.created_at);
+      if (date !== currentDate) {
+        currentDate = date;
+        groups.push({ date, messages: [msg] });
+      } else {
+        groups[groups.length - 1].messages.push(msg);
+      }
+    }
+
+    return groups;
+  }
+
+  return (
+    <div className="flex flex-col h-full max-h-[calc(100vh-4rem)] md:max-h-screen">
+      {/* Tab Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-vale-surface border-b border-vale-border shrink-0">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setTab('text')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'text'
+                ? 'bg-vale-lincoln/20 text-vale-lincoln border border-vale-lincoln/30'
+                : 'text-vale-muted hover:text-vale-text hover:bg-vale-card'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Text
+          </button>
+          <button
+            onClick={() => setTab('voice')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              tab === 'voice'
+                ? 'bg-vale-lincoln/20 text-vale-lincoln border border-vale-lincoln/30'
+                : 'text-vale-muted hover:text-vale-text hover:bg-vale-card'
+            }`}
+          >
+            <Phone className="w-4 h-4" />
+            Voice
+          </button>
+        </div>
+
+        <button
+          onClick={handleClearHistory}
+          className="p-2 text-vale-muted hover:text-red-400 transition-colors"
+          title="Clear chat history"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+      >
+        {isLoadingHistory ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-vale-accent animate-spin" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 rounded-full lincoln-gradient flex items-center justify-center mb-4">
+              <span className="text-white text-2xl font-bold">L</span>
+            </div>
+            <p className="text-vale-text font-semibold mb-1">Lincoln's Line</p>
+            <p className="text-vale-muted text-sm max-w-xs">
+              {tab === 'voice'
+                ? 'Hold the mic button to talk. Lincoln hears you and responds with his voice.'
+                : 'Type a message. Lincoln sees your hub state and responds as himself.'}
+            </p>
+          </div>
+        ) : (
+          groupByDate(messages).map((group) => (
+            <div key={group.date}>
+              <div className="flex items-center justify-center my-3">
+                <span className="text-[10px] text-vale-muted bg-vale-surface px-3 py-0.5 rounded-full">
+                  {group.date}
+                </span>
+              </div>
+              {group.messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex mb-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 ${
+                      msg.role === 'user'
+                        ? 'bg-vale-arden/20 border border-vale-arden/30 text-vale-text rounded-br-md'
+                        : 'bg-vale-lincoln/15 border border-vale-lincoln/25 text-vale-text rounded-bl-md'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span
+                        className={`text-[10px] font-semibold ${
+                          msg.role === 'user' ? 'text-vale-arden' : 'text-vale-lincoln'
+                        }`}
+                      >
+                        {msg.role === 'user' ? 'Arden' : 'Lincoln'}
+                      </span>
+                      <span className="text-[9px] text-vale-muted">{formatTime(msg.created_at)}</span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+
+                    {/* Voice playback button for assistant messages with voice */}
+                    {msg.voice_url && (
+                      <button
+                        onClick={() =>
+                          playingAudioId === msg.id ? stopAudio() : playAudio(msg.id, msg.voice_url!)
+                        }
+                        className="mt-2 flex items-center gap-1.5 text-[10px] text-vale-lincoln hover:text-vale-lincoln/80 transition-colors"
+                      >
+                        {playingAudioId === msg.id ? (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5" /> Stop
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5" /> Play voice
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+
+        {/* Typing indicator */}
+        {(isSending || isProcessingVoice) && (
+          <div className="flex justify-start mb-2">
+            <div className="bg-vale-lincoln/15 border border-vale-lincoln/25 rounded-2xl rounded-bl-md px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-vale-lincoln font-semibold">Lincoln</span>
+                <div className="flex gap-1 ml-1">
+                  <span className="w-1.5 h-1.5 bg-vale-lincoln/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-vale-lincoln/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-vale-lincoln/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="shrink-0 px-4 py-3 bg-vale-surface border-t border-vale-border">
+        {tab === 'voice' && (
+          <div className="flex flex-col items-center gap-3 mb-3">
+            {/* Voice recording button */}
+            <button
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onMouseLeave={() => isRecording && stopRecording()}
+              onTouchStart={(e) => { e.preventDefault(); startRecording(); }}
+              onTouchEnd={(e) => { e.preventDefault(); stopRecording(); }}
+              disabled={isProcessingVoice}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+                isRecording
+                  ? 'bg-red-500 scale-110 shadow-lg shadow-red-500/30 animate-pulse'
+                  : isProcessingVoice
+                  ? 'bg-vale-lincoln/30 cursor-wait'
+                  : 'bg-vale-lincoln/20 border-2 border-vale-lincoln/40 hover:bg-vale-lincoln/30 active:scale-95'
+              }`}
+            >
+              {isProcessingVoice ? (
+                <Loader2 className="w-6 h-6 text-vale-lincoln animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="w-6 h-6 text-white" />
+              ) : (
+                <Mic className="w-6 h-6 text-vale-lincoln" />
+              )}
+            </button>
+            <p className="text-[10px] text-vale-muted">
+              {isRecording
+                ? 'Release to send'
+                : isProcessingVoice
+                ? 'Processing...'
+                : 'Hold to talk'}
+            </p>
+            {lastTranscription && (
+              <p className="text-[10px] text-vale-muted italic max-w-xs text-center truncate">
+                Heard: "{lastTranscription}"
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Text input — always visible (can type in voice tab too) */}
+        <form onSubmit={handleSendText} className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={tab === 'voice' ? 'Or type a message...' : 'Talk to Lincoln...'}
+            disabled={isSending}
+            className="flex-1 px-4 py-3 bg-vale-card border border-vale-border rounded-xl text-sm text-vale-text placeholder-vale-muted focus:outline-none focus:ring-1 focus:ring-vale-lincoln/40"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || isSending}
+            className="px-4 py-3 lincoln-gradient text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2"
+          >
+            {isSending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -538,6 +538,24 @@ DROP TRIGGER IF EXISTS trg_fitbit_tokens_updated_at ON fitbit_tokens;
 CREATE TRIGGER trg_fitbit_tokens_updated_at BEFORE UPDATE ON fitbit_tokens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================
+-- S) CHAT MESSAGES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  voice_url TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user_time ON chat_messages(user_id, created_at DESC);
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- HEARTH SCHEMA COMPLETE
 -- Embers Remember.
 -- ============================================================
