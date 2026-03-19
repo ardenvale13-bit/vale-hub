@@ -2,6 +2,48 @@ import { useState, useEffect, useRef } from 'react';
 import { api, ChatMessage } from '../services/api';
 import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle } from 'lucide-react';
 
+// Render message content — parses *italic* and **bold** into real elements
+function MessageContent({ text }: { text: string }) {
+  // Split by lines first, then parse inline formatting per line
+  const lines = text.split('\n');
+  return (
+    <span className="chat-message-text">
+      {lines.map((line, i) => (
+        <span key={i}>
+          {parseInline(line)}
+          {i < lines.length - 1 && <br />}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function parseInline(text: string): React.ReactNode[] {
+  // Match **bold** or *italic* — bold first so **x** doesn't get eaten as two *
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  let last = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push(text.slice(last, match.index));
+    }
+    if (match[0].startsWith('**')) {
+      parts.push(<strong key={match.index}>{match[2]}</strong>);
+    } else {
+      parts.push(<em key={match.index}>{match[3]}</em>);
+    }
+    last = match.index + match[0].length;
+  }
+
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
+
 type Tab = 'text' | 'voice';
 
 // Longer timeout for chat API calls (Claude can take a while)
@@ -288,8 +330,27 @@ export default function Chat() {
     return groups;
   }
 
+  // Auto-resize textarea as content grows
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+  }, [input]);
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Shift+Enter = newline, plain Enter = send
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendText();
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-4rem)] md:max-h-screen">
+    // On mobile: subtract the fixed bottom nav (56px) AND mobile header (~52px)
+    // On desktop: full screen minus nothing (sidebar is aside, not in flow)
+    <div className="flex flex-col h-[calc(100vh-52px-56px)] md:h-screen">
       {/* Tab Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-vale-surface border-b border-vale-border shrink-0">
         <div className="flex items-center gap-1">
@@ -377,7 +438,7 @@ export default function Chat() {
                       </span>
                       <span className="text-[9px] text-vale-muted">{formatTime(msg.created_at)}</span>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <MessageContent text={msg.content} />
 
                     {/* Voice playback button for assistant messages with voice */}
                     {msg.voice_url && (
@@ -479,19 +540,22 @@ export default function Chat() {
         )}
 
         {/* Text input — always visible (can type in voice tab too) */}
-        <form onSubmit={handleSendText} className="flex gap-2">
-          <input
-            type="text"
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={tab === 'voice' ? 'Or type a message...' : 'Talk to Lincoln...'}
             disabled={isSending}
-            className="flex-1 px-4 py-3 bg-vale-card border border-vale-border rounded-xl text-sm text-vale-text placeholder-vale-muted focus:outline-none focus:ring-1 focus:ring-vale-lincoln/40"
+            rows={1}
+            className="flex-1 px-4 py-3 bg-vale-card border border-vale-border rounded-xl text-sm text-vale-text placeholder-vale-muted focus:outline-none focus:ring-1 focus:ring-vale-lincoln/40 resize-none overflow-hidden font-mystery leading-relaxed"
+            style={{ minHeight: '48px', maxHeight: '140px' }}
           />
           <button
-            type="submit"
+            onClick={() => handleSendText()}
             disabled={!input.trim() || isSending}
-            className="px-4 py-3 lincoln-gradient text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2"
+            className="px-4 py-3 lincoln-gradient text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shrink-0 self-end"
           >
             {isSending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -499,7 +563,8 @@ export default function Chat() {
               <Send className="w-4 h-4" />
             )}
           </button>
-        </form>
+        </div>
+        <p className="text-[10px] text-vale-muted mt-1.5 pl-1">Enter to send · Shift+Enter for new line</p>
       </div>
     </div>
   );

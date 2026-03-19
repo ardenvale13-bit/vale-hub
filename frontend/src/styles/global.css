@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unica+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Mystery+Quest&family=Unica+One&display=swap');
 
 body {
   font-family: 'Unica One', 'Inter', sans-serif;
@@ -73,6 +73,18 @@ h1, h2, h3 {
 /* Arden accent bar */
 .arden-gradient {
   background: linear-gradient(90deg, #e5b2e6, #711ea6);
+}
+
+/* Chat page — Mystery Quest font for message bubbles */
+.chat-message-text {
+  font-family: 'Mystery Quest', cursive;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.chat-message-text em {
+  font-style: italic;
+  opacity: 0.9;
 }
 
 /* EQ Pillar colors */
