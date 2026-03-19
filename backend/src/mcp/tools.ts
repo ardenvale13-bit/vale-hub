@@ -914,4 +914,12 @@ export const mcpTools = [
       properties: {},
     },
   },
+  {
+    name: 'spotify_now_playing',
+    description: "Get what Arden is currently listening to on Spotify. Returns track name, artists, album, album art URL, playback progress, and whether it's actively playing. Falls back to most recently played track if nothing is currently on.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];

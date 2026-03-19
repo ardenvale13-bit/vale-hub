@@ -654,6 +654,112 @@ export async function handleToolCall(
         };
       }
 
+      case 'spotify_now_playing': {
+        const env = getEnv();
+
+        // Get stored tokens
+        const { data: tokenRows } = await supabase
+          .from('identity_store')
+          .select('key, value')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .eq('owner_perspective', 'system')
+          .eq('category', 'spotify')
+          .in('key', ['access_token', 'refresh_token', 'expires_at']);
+
+        if (!tokenRows || tokenRows.length === 0) {
+          return { connected: false, message: 'Spotify not connected' };
+        }
+
+        const tokens: any = {};
+        for (const row of tokenRows) tokens[row.key] = row.value;
+
+        if (!tokens.access_token) {
+          return { connected: false, message: 'No access token stored' };
+        }
+
+        // Refresh if expired
+        let accessToken = tokens.access_token;
+        const expiresAt = parseInt(tokens.expires_at || '0', 10);
+        if (Date.now() >= expiresAt - 60000 && tokens.refresh_token) {
+          const creds = `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`;
+          const basic = Buffer.from(creds).toString('base64');
+          const refreshRes = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
+          });
+          if (refreshRes.ok) {
+            const refreshData = await refreshRes.json() as any;
+            accessToken = refreshData.access_token;
+            const newExpiry = Date.now() + (refreshData.expires_in || 3600) * 1000;
+            await supabase.from('identity_store').upsert(
+              { user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'access_token', value: accessToken },
+              { onConflict: 'user_id,owner_perspective,category,key' }
+            );
+            await supabase.from('identity_store').upsert(
+              { user_id: env.SINGLE_USER_ID, owner_perspective: 'system', category: 'spotify', key: 'expires_at', value: newExpiry.toString() },
+              { onConflict: 'user_id,owner_perspective,category,key' }
+            );
+          }
+        }
+
+        // Fetch now playing
+        const npRes = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+
+        if (npRes.status === 204) {
+          // Nothing playing — check recently played
+          const recentRes = await fetch('https://api.spotify.com/v1/me/player/recently-played?limit=1', {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          });
+          if (recentRes.ok) {
+            const recent = await recentRes.json() as any;
+            const item = recent?.items?.[0]?.track;
+            if (item) {
+              return {
+                connected: true,
+                playing: false,
+                status: 'Recently played',
+                track: item.name,
+                artists: item.artists.map((a: any) => a.name).join(', '),
+                album: item.album.name,
+                album_art: item.album.images?.[0]?.url || null,
+                spotify_url: item.external_urls?.spotify || null,
+              };
+            }
+          }
+          return { connected: true, playing: false, status: 'Nothing playing' };
+        }
+
+        if (!npRes.ok) {
+          return { connected: true, playing: false, status: `Spotify API error: ${npRes.status}` };
+        }
+
+        const npData = await npRes.json() as any;
+        const item = npData?.item;
+        if (!item) return { connected: true, playing: false, status: 'Nothing playing' };
+
+        const progress_pct = npData.progress_ms && item.duration_ms
+          ? Math.round((npData.progress_ms / item.duration_ms) * 100)
+          : 0;
+
+        return {
+          connected: true,
+          playing: npData.is_playing,
+          status: npData.is_playing ? 'Now playing' : 'Paused',
+          track: item.name,
+          artists: item.artists.map((a: any) => a.name).join(', '),
+          album: item.album.name,
+          album_art: item.album.images?.[0]?.url || null,
+          progress_ms: npData.progress_ms || 0,
+          duration_ms: item.duration_ms,
+          progress_pct: `${progress_pct}%`,
+          spotify_url: item.external_urls?.spotify || null,
+          context: npData.context?.type || null,
+        };
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }
