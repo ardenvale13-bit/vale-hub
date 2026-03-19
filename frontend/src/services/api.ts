@@ -501,6 +501,37 @@ const library = {
     apiCall<void>(`/library/${bookId}`, 'DELETE'),
 };
 
+// ===== SPOTIFY =====
+export interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: string[];
+  album: string;
+  albumArt: string | null;
+  albumArtSmall: string | null;
+  duration_ms: number;
+  progress_ms: number;
+  external_url: string | null;
+  context_type: string | null;
+}
+
+export interface SpotifyNowPlaying {
+  connected: boolean;
+  playing: boolean;
+  track?: SpotifyTrack;
+}
+
+const spotify = {
+  nowPlaying: () =>
+    apiCall<SpotifyNowPlaying>('/spotify/now-playing'),
+
+  status: () =>
+    apiCall<{ connected: boolean }>('/spotify/status'),
+
+  disconnect: () =>
+    apiCall<{ ok: boolean }>('/spotify/disconnect', 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -516,4 +547,5 @@ export const api = {
   discord,
   chat,
   library,
+  spotify,
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X } from 'lucide-react';
+import { api, StatusHistory, DashboardImage, SpotifyNowPlaying } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -59,6 +59,9 @@ export default function Dashboard() {
   // Status history (last 24h)
   const [statusHistory, setStatusHistory] = useState<StatusHistory[]>([]);
 
+  // Spotify
+  const [spotifyData, setSpotifyData] = useState<SpotifyNowPlaying | null>(null);
+
   // Dashboard image
   const [dashboardImage, setDashboardImage] = useState<DashboardImage | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -69,6 +72,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
+  }, []);
+
+  // Spotify polling — every 10s
+  useEffect(() => {
+    let active = true;
+    async function pollSpotify() {
+      try {
+        const data = await api.spotify.nowPlaying();
+        if (active) setSpotifyData(data);
+      } catch {
+        // silently ignore — spotify might not be configured
+      }
+    }
+    pollSpotify();
+    const interval = setInterval(pollSpotify, 10000);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   async function loadDashboard() {
@@ -731,6 +750,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Spotify Now Playing */}
+      <SpotifyWidget data={spotifyData} />
+
       {/* Footer */}
       <div className="text-center text-xs text-vale-muted pb-4">
         <p>Binary Home — Arden & Lincoln | Vale Verse</p>
@@ -794,6 +816,175 @@ function EditableStatus({ label, value, onChange, onSave, accent, history = [] }
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────
+// Spotify Now Playing Widget
+// ───────────────────────────────────────────
+
+function SpotifyWidget({ data }: { data: SpotifyNowPlaying | null }) {
+  const [progress, setProgress] = useState(0);
+  const [progressMs, setProgressMs] = useState(0);
+  const animRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(Date.now());
+
+  // Smoothly tick progress while playing
+  useEffect(() => {
+    if (data?.playing && data.track) {
+      setProgressMs(data.track.progress_ms);
+      lastUpdateRef.current = Date.now();
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!data?.playing || !data.track) {
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      return;
+    }
+    function tick() {
+      const elapsed = Date.now() - lastUpdateRef.current;
+      const current = progressMs + elapsed;
+      const pct = Math.min(100, (current / (data!.track!.duration_ms || 1)) * 100);
+      setProgress(pct);
+      animRef.current = requestAnimationFrame(tick);
+    }
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [data?.playing, data?.track?.id, progressMs]);
+
+  // Not configured at all — show nothing (not even a placeholder)
+  if (data === null) return null;
+
+  // Connected but nothing playing / no recent track
+  if (!data.connected) {
+    const API_BASE = (import.meta as any).env?.VITE_API_URL
+      ? `${(import.meta as any).env.VITE_API_URL}/api`
+      : '/api';
+    return (
+      <div className="bg-vale-card border border-vale-border rounded-lg p-4 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-vale-surface flex items-center justify-center">
+            <Music2 className="w-4 h-4 text-vale-muted" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-vale-text">Spotify</p>
+            <p className="text-xs text-vale-muted">Not connected</p>
+          </div>
+        </div>
+        <a
+          href={`${API_BASE}/spotify/auth`}
+          className="px-4 py-1.5 bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30 rounded text-xs font-semibold hover:bg-[#1DB954]/30 transition-colors"
+        >
+          Connect
+        </a>
+      </div>
+    );
+  }
+
+  if (!data.track) {
+    return (
+      <div className="bg-vale-card border border-vale-border rounded-lg p-4 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-vale-surface flex items-center justify-center">
+          <Music2 className="w-4 h-4 text-[#1DB954]" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-vale-text">Spotify</p>
+          <p className="text-xs text-vale-muted">Nothing playing right now</p>
+        </div>
+        <div className="ml-auto w-2 h-2 rounded-full bg-[#1DB954] opacity-60" />
+      </div>
+    );
+  }
+
+  const { track } = data;
+  const artistStr = track.artists.join(', ');
+  const currentProgress = data.playing ? progress : (track.progress_ms / (track.duration_ms || 1)) * 100;
+
+  function formatTime(ms: number) {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  const elapsed = data.playing ? progressMs + (Date.now() - lastUpdateRef.current) : track.progress_ms;
+
+  return (
+    <div className="bg-vale-card border border-vale-border rounded-lg p-4">
+      <div className="flex items-center gap-3">
+        {/* Album art */}
+        {track.albumArtSmall || track.albumArt ? (
+          <img
+            src={track.albumArtSmall || track.albumArt!}
+            alt={track.album}
+            className="w-12 h-12 rounded-md flex-shrink-0 object-cover border border-vale-border"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-md bg-vale-surface flex items-center justify-center flex-shrink-0 border border-vale-border">
+            <Music2 className="w-5 h-5 text-[#1DB954]" />
+          </div>
+        )}
+
+        {/* Track info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-vale-text truncate">{track.name}</p>
+            {data.playing && (
+              <span className="flex-shrink-0 flex gap-0.5 items-end h-3">
+                {[0, 0.2, 0.1].map((delay, i) => (
+                  <span
+                    key={i}
+                    className="w-0.5 bg-[#1DB954] rounded-full animate-pulse"
+                    style={{
+                      height: `${8 + i * 3}px`,
+                      animationDelay: `${delay}s`,
+                      animationDuration: '0.8s',
+                    }}
+                  />
+                ))}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-vale-muted truncate">{artistStr}</p>
+          <p className="text-[10px] text-vale-muted/60 truncate mt-0.5">{track.album}</p>
+        </div>
+
+        {/* Spotify link + connected dot */}
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          {track.external_url && (
+            <a
+              href={track.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-vale-muted hover:text-[#1DB954] transition-colors"
+              title="Open in Spotify"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#1DB954]" />
+            <span className="text-[10px] text-[#1DB954]">Spotify</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mt-3">
+        <div className="w-full h-1 bg-vale-border rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-none"
+            style={{
+              width: `${currentProgress}%`,
+              background: 'linear-gradient(to right, #1DB954, #1ed760)',
+            }}
+          />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-[10px] text-vale-muted">{formatTime(elapsed)}</span>
+          <span className="text-[10px] text-vale-muted">{formatTime(track.duration_ms)}</span>
+        </div>
+      </div>
     </div>
   );
 }

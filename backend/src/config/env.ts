@@ -21,6 +21,9 @@ const envSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   JSONBIN_BIN_ID: z.string().optional(),
   JSONBIN_API_KEY: z.string().optional(),
+  SPOTIFY_CLIENT_ID: z.string().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().optional(),
+  SPOTIFY_REDIRECT_URI: z.string().optional(),
   CORS_ORIGIN: z.string().default('http://localhost:5173'), // Comma-separated for multiple origins
 });
 
