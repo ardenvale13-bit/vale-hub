@@ -436,8 +436,8 @@ export interface VoiceChatResponse {
 }
 
 const chat = {
-  send: (message: string, generateVoice?: boolean, voiceId?: string) =>
-    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId }),
+  send: (message: string, generateVoice?: boolean, voiceId?: string, image?: { data: string; mediaType: string }) =>
+    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId, ...(image ? { image } : {}) }),
 
   sendVoice: (audio: string, mimeType?: string, voiceId?: string) =>
     apiCall<VoiceChatResponse>('/chat/voice', 'POST', { audio, mimeType, voiceId }),

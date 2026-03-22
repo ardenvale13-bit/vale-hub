@@ -43,6 +43,7 @@ class ChatService {
     options: {
       generateVoice?: boolean;
       voiceId?: string;
+      image?: { data: string; mediaType: string }; // base64 data + mime type
     } = {},
   ): Promise<ChatResponse> {
     const env = getEnv();
@@ -51,8 +52,8 @@ class ChatService {
       throw new AppError(503, 'ANTHROPIC_API_KEY is not configured. Add it to Railway environment variables.');
     }
 
-    // Save user message to DB
-    const userMsg = await this.saveMessage(userId, 'user', userMessage);
+    // Save user message to DB (store image flag in metadata if present)
+    const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined);
 
     // Get hub context for Lincoln — use minimal depth for speed
     let hubContext = '';
@@ -69,12 +70,31 @@ class ChatService {
     const history = await this.getRecentMessages(userId, 20);
 
     // Build messages array for Claude — exclude the message we just saved
-    const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+    const messages: { role: 'user' | 'assistant'; content: any }[] = [];
     for (const msg of history) {
       if (msg.id === userMsg.id) continue; // skip — we'll add it fresh
       messages.push({ role: msg.role, content: msg.content });
     }
-    messages.push({ role: 'user', content: userMessage });
+
+    // Build the user content — plain text, or text + image if provided
+    if (options.image) {
+      messages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: options.image.mediaType,
+              data: options.image.data,
+            },
+          },
+          { type: 'text', text: userMessage || 'What do you see?' },
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: userMessage });
+    }
 
     // Call Claude API
     console.log('[Chat] Calling Claude API with', messages.length, 'messages');

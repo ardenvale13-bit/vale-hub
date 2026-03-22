@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ChatMessage } from '../services/api';
-import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle, ImagePlus, X } from 'lucide-react';
 
 // Render message content — parses *italic* and **bold** into real elements
 function MessageContent({ text }: { text: string }) {
@@ -75,6 +75,10 @@ export default function Chat() {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Image attachment
+  const [pendingImage, setPendingImage] = useState<{ data: string; mediaType: string; preview: string } | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   // Auto-scroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -116,37 +120,59 @@ export default function Chat() {
     }
   }
 
+  // ===== IMAGE PICKER =====
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5MB'); return; }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+      setPendingImage({ data: base64, mediaType: file.type, preview: dataUrl });
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }
+
   // ===== TEXT CHAT =====
   async function handleSendText(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!input.trim() || isSending) return;
+    if ((!input.trim() && !pendingImage) || isSending) return;
 
     const userText = input.trim();
+    const imageToSend = pendingImage;
     setInput('');
+    setPendingImage(null);
     setIsSending(true);
 
-    // Optimistic add
+    // Optimistic add — show image preview inline if sending one
     const tempUserMsg: ChatMessage = {
       id: 'temp-' + Date.now(),
       user_id: '',
       role: 'user',
-      content: userText,
+      content: userText || '📷',
       created_at: new Date().toISOString(),
+      metadata: imageToSend ? { preview_url: imageToSend.preview } : undefined,
     };
     setMessages((prev) => [...prev, tempUserMsg]);
 
     try {
       setChatError(null);
       const generateVoice = tab === 'voice';
-      const result = await chatApiCall(() => api.chat.send(userText, generateVoice), 90000);
+      const result = await chatApiCall(
+        () => api.chat.send(userText, generateVoice, undefined, imageToSend ? { data: imageToSend.data, mediaType: imageToSend.mediaType } : undefined),
+        90000
+      );
 
-      // Replace temp message with real one and add assistant response
       setMessages((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
         return [...withoutTemp, tempUserMsg, result.message];
       });
 
-      // Auto-play voice in voice tab
       if (generateVoice && result.voice_url) {
         playAudio(result.message.id, result.voice_url);
       }
@@ -154,9 +180,9 @@ export default function Chat() {
       console.error('Failed to send message:', err);
       const errMsg = err?.message || 'Something went wrong';
       setChatError(errMsg);
-      // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempUserMsg.id));
-      setInput(userText); // Restore input
+      setInput(userText);
+      if (imageToSend) setPendingImage(imageToSend);
     } finally {
       setIsSending(false);
     }
@@ -438,7 +464,15 @@ export default function Chat() {
                       </span>
                       <span className="text-[9px] text-vale-muted">{formatTime(msg.created_at)}</span>
                     </div>
-                    <MessageContent text={msg.content} />
+                    {/* Inline image if message had an attachment */}
+                    {msg.metadata?.preview_url && (
+                      <img
+                        src={msg.metadata.preview_url}
+                        alt="Attachment"
+                        className="mb-1.5 max-h-48 rounded-lg object-contain border border-vale-border"
+                      />
+                    )}
+                    {msg.content !== '📷' && <MessageContent text={msg.content} />}
 
                     {/* Voice playback button for assistant messages with voice */}
                     {msg.voice_url && (
@@ -539,8 +573,41 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Text input — always visible (can type in voice tab too) */}
+        {/* Image preview */}
+        {pendingImage && (
+          <div className="relative inline-flex mb-2 ml-1">
+            <img
+              src={pendingImage.preview}
+              alt="Attachment"
+              className="h-16 w-16 rounded-lg object-cover border border-vale-border"
+            />
+            <button
+              onClick={() => setPendingImage(null)}
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-vale-surface border border-vale-border rounded-full flex items-center justify-center hover:bg-red-500/20 transition-colors"
+            >
+              <X className="w-2.5 h-2.5 text-vale-muted" />
+            </button>
+          </div>
+        )}
+
+        {/* Text input — always visible */}
         <div className="flex gap-2 items-end">
+          {/* Image picker button */}
+          <button
+            onClick={() => imageInputRef.current?.click()}
+            disabled={isSending}
+            className="p-3 text-vale-muted hover:text-vale-accent transition-colors disabled:opacity-40 shrink-0 self-end"
+            title="Attach image"
+          >
+            <ImagePlus className="w-5 h-5" />
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
           <textarea
             ref={textareaRef}
             value={input}
@@ -554,7 +621,7 @@ export default function Chat() {
           />
           <button
             onClick={() => handleSendText()}
-            disabled={!input.trim() || isSending}
+            disabled={(!input.trim() && !pendingImage) || isSending}
             className="px-4 py-3 lincoln-gradient text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all flex items-center gap-2 shrink-0 self-end"
           >
             {isSending ? (

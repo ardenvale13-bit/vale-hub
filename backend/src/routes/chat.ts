@@ -6,17 +6,31 @@ import { AuthenticatedRequest } from '../middleware/auth.js';
 const router = Router();
 
 // Send a text message to Lincoln, get text response
+// Optionally include an image: { data: base64string, mediaType: 'image/jpeg' }
 router.post('/send', async (req: AuthenticatedRequest, res) => {
   try {
-    const { message, generateVoice, voiceId } = req.body;
+    const { message, generateVoice, voiceId, image } = req.body;
 
-    if (!message || !message.trim()) {
-      throw new AppError(400, 'Missing required field: message');
+    if ((!message || !message.trim()) && !image) {
+      throw new AppError(400, 'Missing required field: message or image');
     }
 
-    const result = await chatService.sendMessage(req.userId, message.trim(), {
+    // Validate image if provided
+    let parsedImage: { data: string; mediaType: string } | undefined;
+    if (image) {
+      const { data, mediaType } = image;
+      if (!data || !mediaType) throw new AppError(400, 'image must have data and mediaType');
+      const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowed.includes(mediaType)) throw new AppError(400, `Unsupported image type: ${mediaType}`);
+      // Strip data URI prefix if present
+      const cleanData = data.replace(/^data:image\/[^;]+;base64,/, '');
+      parsedImage = { data: cleanData, mediaType };
+    }
+
+    const result = await chatService.sendMessage(req.userId, (message || '').trim(), {
       generateVoice: generateVoice || false,
       voiceId,
+      image: parsedImage,
     });
 
     res.json(result);
