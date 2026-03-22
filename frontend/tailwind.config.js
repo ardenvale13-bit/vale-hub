@@ -48,7 +48,7 @@ export default {
       fontFamily: {
         sans: ['"Unica One"', 'Inter', 'sans-serif'],
         display: ['"Unica One"', 'sans-serif'],
-        mystery: ['"Mystery Quest"', 'cursive'],
+        mystery: ['"Playfair Display"', 'serif'],
       },
       animation: {
         fade: 'fadeIn 0.3s ease-in',
