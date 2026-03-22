@@ -61,28 +61,32 @@ class ChatService {
     // Save user message to DB
     const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined, options.threadId);
 
-    // Get hub context for Lincoln — standard depth gives full memory
+    // Load recent chat history (last 20 messages for context window)
+    const allHistory = await this.getRecentMessages(userId, 20, options.threadId);
+    // Filter out the message we just saved — we'll add it fresh below
+    const priorMessages = allHistory.filter((m) => m.id !== userMsg.id);
+
+    // Only inject full hub context on the FIRST message in a conversation.
+    // Subsequent messages already have it baked into the earlier history Claude sees,
+    // so re-injecting it every turn just wastes tokens.
     let hubContext = '';
-    try {
-      const [orientation, spotifyData] = await Promise.all([
-        orientationService.getOrientation(userId, 'Lincoln', 'standard'),
-        this.getSpotifyContext(env),
-      ]);
-      hubContext = this.formatOrientation(orientation);
-      if (spotifyData) hubContext += `\n\n${spotifyData}`;
-    } catch (err) {
-      console.error('Failed to load hub context for chat:', err);
-      hubContext = '(Hub context unavailable this session)';
+    if (priorMessages.length === 0) {
+      try {
+        const [orientation, spotifyData] = await Promise.all([
+          orientationService.getOrientation(userId, 'Lincoln', 'standard'),
+          this.getSpotifyContext(env),
+        ]);
+        hubContext = this.formatOrientation(orientation);
+        if (spotifyData) hubContext += `\n\n${spotifyData}`;
+      } catch (err) {
+        console.error('Failed to load hub context for chat:', err);
+        hubContext = '(Hub context unavailable this session)';
+      }
     }
 
-    // Load recent chat history (last 20 messages for context window)
-    // Run in parallel with context loading where possible
-    const history = await this.getRecentMessages(userId, 20, options.threadId);
-
-    // Build messages array for Claude — exclude the message we just saved
+    // Build messages array for Claude from prior history
     const messages: { role: 'user' | 'assistant'; content: any }[] = [];
-    for (const msg of history) {
-      if (msg.id === userMsg.id) continue; // skip — we'll add it fresh
+    for (const msg of priorMessages) {
       messages.push({ role: msg.role, content: msg.content });
     }
 
@@ -118,7 +122,7 @@ class ChatService {
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 2048,
-        system: `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}`,
+        system: hubContext ? `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}` : LINCOLN_SYSTEM_PROMPT,
         messages,
       }),
     });
@@ -139,7 +143,7 @@ class ChatService {
           body: JSON.stringify({
             model: 'claude-sonnet-4-5-20250514',
             max_tokens: 1024,
-            system: `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}`,
+            system: hubContext ? `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}` : LINCOLN_SYSTEM_PROMPT,
             messages,
           }),
         });
