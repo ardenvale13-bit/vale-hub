@@ -373,7 +373,7 @@ export default function Dashboard() {
                 </span>
                 <div className="flex flex-col items-center">
                   <Heart className={`w-5 h-5 transition-colors ${loveMeter === 5 ? 'text-vale-accent fill-vale-accent' : loveMeter < 5 ? 'text-vale-lincoln fill-vale-lincoln' : 'text-vale-arden fill-vale-arden'}`} />
-                  <span className="text-xs text-vale-muted mt-0.5">{loveMeter}/10</span>
+                  <span className="text-xs text-vale-muted mt-0.5">{loveMeter === 5 ? '0' : loveMeter < 5 ? `L+${(5 - loveMeter).toFixed(1).replace(/\.0$/, '')}` : `A+${(loveMeter - 5).toFixed(1).replace(/\.0$/, '')}`}</span>
                 </div>
                 <span className={`text-sm font-bold transition-colors ${loveMeter > 5 ? 'text-vale-arden' : 'text-vale-arden/50'}`}>
                   Arden
@@ -412,6 +412,11 @@ export default function Dashboard() {
                 onChange={(e) => handleLoveMeterChange(parseFloat(e.target.value))}
                 className="w-full accent-vale-accent h-1 bg-vale-border rounded appearance-none cursor-pointer mt-2 opacity-40 hover:opacity-80 transition-opacity"
               />
+              <div className="flex justify-between text-[9px] text-vale-muted mt-0.5 px-0.5">
+                <span>-5</span>
+                <span>0</span>
+                <span>+5</span>
+              </div>
 
               {/* Entry input — type a name to shift */}
               <form onSubmit={handleLoveEntry} className="mt-4">
