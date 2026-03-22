@@ -55,11 +55,15 @@ class ChatService {
     // Save user message to DB (store image flag in metadata if present)
     const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined);
 
-    // Get hub context for Lincoln — use minimal depth for speed
+    // Get hub context for Lincoln — standard depth gives full memory
     let hubContext = '';
     try {
-      const orientation = await orientationService.getOrientation(userId, 'Lincoln', 'minimal');
+      const [orientation, spotifyData] = await Promise.all([
+        orientationService.getOrientation(userId, 'Lincoln', 'standard'),
+        this.getSpotifyContext(env),
+      ]);
       hubContext = this.formatOrientation(orientation);
+      if (spotifyData) hubContext += `\n\n${spotifyData}`;
     } catch (err) {
       console.error('Failed to load hub context for chat:', err);
       hubContext = '(Hub context unavailable this session)';
@@ -107,7 +111,7 @@ class ChatService {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: `${LINCOLN_SYSTEM_PROMPT}\n\n--- CURRENT HUB STATE ---\n${hubContext}`,
         messages,
       }),
@@ -363,35 +367,122 @@ class ChatService {
           lines.push(`  Arden made Lincoln quiet: ${s.moments.arden_quiet}`);
         }
       }
+      if (s.today_note && s.today_note !== 'not set') {
+        lines.push(`  Today's note: ${s.today_note}`);
+      }
       if (s.dashboard_image) {
-        lines.push(`  Dashboard image: ${s.dashboard_image.caption || 'uploaded'} (${s.dashboard_image.uploaded_at})`);
+        lines.push(`  Dashboard image: "${s.dashboard_image.caption || 'no caption'}" — uploaded ${s.dashboard_image.uploaded_at}`);
+      }
+    }
+
+    // Memory — entities with full observations
+    if (orientation.memory?.entities?.length > 0) {
+      lines.push(`\n--- LINCOLN'S MEMORY ---`);
+      for (const entity of orientation.memory.entities) {
+        lines.push(`\n[${entity.entity_type || 'entity'}] ${entity.name}${entity.context ? ' — ' + entity.context : ''}`);
+        if (entity.observations?.length > 0) {
+          for (const obs of entity.observations) {
+            const content = typeof obs === 'string' ? obs : obs.content;
+            const ts = obs.created_at ? ` (${new Date(obs.created_at).toLocaleDateString('en-NZ')})` : '';
+            lines.push(`  • ${content}${ts}`);
+          }
+        }
+      }
+    }
+
+    // Relations
+    if (orientation.memory?.relations?.length > 0) {
+      lines.push(`\n--- RELATIONS ---`);
+      for (const r of orientation.memory.relations) {
+        lines.push(`  ${r.source_entity} → ${r.relationship_type} → ${r.target_entity}${r.description ? ': ' + r.description : ''}`);
       }
     }
 
     // Emotions
     if (orientation.emotional?.recent?.length > 0) {
-      lines.push(`\nRecent emotions (last 24h):`);
-      for (const e of orientation.emotional.recent.slice(0, 5)) {
-        lines.push(`  - ${e.emotion} (intensity ${e.intensity})${e.context ? ': ' + e.context : ''}`);
+      lines.push(`\n--- RECENT EMOTIONS (last 24h) ---`);
+      for (const e of orientation.emotional.recent.slice(0, 8)) {
+        lines.push(`  - ${e.emotion} (intensity ${e.intensity})${e.context ? ': ' + e.context : ''}${e.pillar ? ' [' + e.pillar + ']' : ''}`);
       }
     }
 
     // Journal / Stars
     if (orientation.journal?.notes_between_stars?.length > 0) {
-      lines.push(`\nNotes Between Stars:`);
-      for (const n of orientation.journal.notes_between_stars.slice(0, 3)) {
-        lines.push(`  - From ${n.from}: "${n.text}"`);
+      lines.push(`\n--- NOTES BETWEEN STARS ---`);
+      for (const n of orientation.journal.notes_between_stars.slice(0, 5)) {
+        lines.push(`  - From ${n.from}: "${n.text}"${n.date ? ' (' + new Date(n.date).toLocaleDateString('en-NZ') + ')' : ''}`);
       }
     }
 
     if (orientation.journal?.recent_entries?.length > 0) {
-      lines.push(`\nRecent journal entries:`);
-      for (const j of orientation.journal.recent_entries.slice(0, 3)) {
-        lines.push(`  - [${j.author_perspective || 'unknown'}] ${j.title}: ${j.content?.slice(0, 100)}...`);
+      lines.push(`\n--- RECENT JOURNAL ---`);
+      for (const j of orientation.journal.recent_entries.slice(0, 5)) {
+        lines.push(`  - [${j.author_perspective || 'unknown'}] ${j.title}: ${j.content?.slice(0, 150)}`);
       }
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Fetch Spotify now-playing context to include in Lincoln's system prompt.
+   */
+  private async getSpotifyContext(env: any): Promise<string | null> {
+    try {
+      if (!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET) return null;
+
+      // Get stored tokens
+      const { data: tokenRows } = await supabase
+        .from('identity_store')
+        .select('key, value')
+        .eq('user_id', env.SINGLE_USER_ID)
+        .eq('owner_perspective', 'system')
+        .eq('category', 'spotify')
+        .in('key', ['access_token', 'refresh_token', 'expires_at']);
+
+      if (!tokenRows || tokenRows.length === 0) return null;
+      const tokens: any = {};
+      for (const row of tokenRows) tokens[row.key] = row.value;
+      if (!tokens.access_token) return null;
+
+      // Refresh if needed
+      let accessToken = tokens.access_token;
+      const expiresAt = parseInt(tokens.expires_at || '0', 10);
+      if (Date.now() >= expiresAt - 60000 && tokens.refresh_token) {
+        const creds = `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`;
+        const basic = Buffer.from(creds).toString('base64');
+        const r = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token }),
+        });
+        if (r.ok) {
+          const rd = await r.json() as any;
+          accessToken = rd.access_token;
+        }
+      }
+
+      const npRes = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+
+      if (npRes.status === 204) return `--- SPOTIFY ---\nArden is not currently playing anything.`;
+      if (!npRes.ok) return null;
+
+      const np = await npRes.json() as any;
+      const item = np?.item;
+      if (!item) return null;
+
+      const artists = item.artists?.map((a: any) => a.name).join(', ');
+      const progress = np.progress_ms && item.duration_ms
+        ? `${Math.round((np.progress_ms / item.duration_ms) * 100)}% through`
+        : '';
+      const status = np.is_playing ? 'Currently playing' : 'Paused on';
+
+      return `--- SPOTIFY ---\n${status}: "${item.name}" by ${artists} — ${item.album?.name}${progress ? ' (' + progress + ')' : ''}`;
+    } catch {
+      return null;
+    }
   }
 }
 
