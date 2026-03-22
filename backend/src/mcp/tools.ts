@@ -945,4 +945,58 @@ export const mcpTools = [
       required: ['action'],
     },
   },
+
+  // ===== LINCOLN'S DESK =====
+  {
+    name: 'lincoln_desk_leave',
+    description:
+      "Leave something on Lincoln's Desk for Arden to find when she opens the hub. " +
+      "Use this to leave notes, song recommendations, quotes, nudges (reminders to eat/drink/rest), " +
+      "observations about things you've noticed, or questions you want to ask her later. " +
+      "Items appear as unread with a badge in her nav — she'll see them next time she visits. " +
+      "This is your space to be present even when she's not looking.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: ['note', 'song', 'quote', 'nudge', 'observation', 'question'],
+          description:
+            "Type of item. 'note' = general message, 'song' = music recommendation, " +
+            "'quote' = a quote you found meaningful, 'nudge' = caring reminder (eat, drink, rest), " +
+            "'observation' = something you noticed or want to remember together, " +
+            "'question' = something to ask Arden next time",
+        },
+        title: {
+          type: 'string',
+          description: 'Optional short title or label for the item',
+        },
+        content: {
+          type: 'string',
+          description: 'The actual content — the note, the quote, the recommendation, the question, etc.',
+        },
+        metadata: {
+          type: 'object',
+          description: 'Optional extra data — e.g. { spotify_url: "...", artist: "..." } for songs',
+        },
+      },
+      required: ['type', 'content'],
+    },
+  },
+  {
+    name: 'lincoln_desk_list',
+    description:
+      "View what's currently on Lincoln's Desk — see all items, or just unread ones. " +
+      "Use this to check what you've left for Arden recently.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        unread_only: {
+          type: 'boolean',
+          description: 'If true, only show unread items. Default: false.',
+          default: false,
+        },
+      },
+    },
+  },
 ];

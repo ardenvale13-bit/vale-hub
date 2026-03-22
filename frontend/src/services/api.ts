@@ -576,6 +576,35 @@ const spotify = {
     apiCall<{ ok: boolean }>('/spotify/disconnect', 'DELETE'),
 };
 
+// ===== LINCOLN'S DESK =====
+export interface DeskItem {
+  id: string;
+  user_id: string;
+  type: 'note' | 'song' | 'quote' | 'nudge' | 'observation' | 'question';
+  title: string | null;
+  content: string;
+  metadata: Record<string, any> | null;
+  read: boolean;
+  created_at: string;
+}
+
+const desk = {
+  list: (unreadOnly?: boolean) =>
+    apiCall<DeskItem[]>(`/desk${unreadOnly ? '?unread=true' : ''}`),
+
+  unreadCount: () =>
+    apiCall<{ count: number }>('/desk/unread-count'),
+
+  markRead: (id: string) =>
+    apiCall<DeskItem>(`/desk/${id}/read`, 'PATCH'),
+
+  markAllRead: () =>
+    apiCall<{ success: boolean }>('/desk/read-all', 'POST'),
+
+  delete: (id: string) =>
+    apiCall<{ success: boolean }>(`/desk/${id}`, 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -592,4 +621,5 @@ export const api = {
   chat,
   library,
   spotify,
+  desk,
 };

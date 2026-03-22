@@ -837,6 +837,62 @@ export async function handleToolCall(
         return { ok: false, error: `Unknown action: ${action}` };
       }
 
+      // ===== LINCOLN'S DESK =====
+      case 'lincoln_desk_leave': {
+        const env = getEnv();
+        const { type, title, content, metadata } = toolInput;
+        if (!content?.trim()) return { ok: false, error: 'content is required' };
+
+        const validTypes = ['note', 'song', 'quote', 'nudge', 'observation', 'question'];
+        const itemType = validTypes.includes(type) ? type : 'note';
+
+        const { data, error } = await supabase
+          .from('lincoln_desk')
+          .insert({
+            user_id: env.SINGLE_USER_ID,
+            type: itemType,
+            title: title?.trim() || null,
+            content: content.trim(),
+            metadata: metadata || null,
+            read: false,
+            created_at: new Date().toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (error) return { ok: false, error: error.message };
+        return {
+          ok: true,
+          item: data,
+          message: `Left a ${itemType} on your desk for Arden. She'll see it next time she opens the hub.`,
+        };
+      }
+
+      case 'lincoln_desk_list': {
+        const env = getEnv();
+        const { unread_only } = toolInput;
+
+        let query = supabase
+          .from('lincoln_desk')
+          .select('*')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (unread_only) query = query.eq('read', false);
+
+        const { data, error } = await query;
+        if (error) return { ok: false, error: error.message };
+
+        const unreadCount = (data || []).filter((d: any) => !d.read).length;
+        return {
+          ok: true,
+          items: data || [],
+          total: (data || []).length,
+          unread: unreadCount,
+        };
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }

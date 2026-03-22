@@ -1,5 +1,6 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity, MessagesSquare } from 'lucide-react';
+import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity, MessagesSquare, Mailbox } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Memory from './pages/Memory';
 import Emotions from './pages/Emotions';
@@ -8,13 +9,39 @@ import Media from './pages/Media';
 import Journal from './pages/Journal';
 import Health from './pages/Health';
 import Chat from './pages/Chat';
+import Desk from './pages/Desk';
+import { api } from './services/api';
 
 export default function App() {
   const location = useLocation();
+  const [deskUnread, setDeskUnread] = useState(0);
+
+  // Poll desk unread count every 30s
+  const fetchDeskCount = useCallback(async () => {
+    try {
+      const { count } = await api.desk.unreadCount();
+      setDeskUnread(count);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    fetchDeskCount();
+    const interval = setInterval(fetchDeskCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchDeskCount]);
+
+  // Re-check when navigating to desk (marks items read)
+  useEffect(() => {
+    if (location.pathname === '/desk') {
+      const timeout = setTimeout(fetchDeskCount, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [location.pathname, fetchDeskCount]);
 
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/chat', label: 'Chat', icon: MessagesSquare },
+    { path: '/desk', label: 'Desk', icon: Mailbox, badge: deskUnread },
     { path: '/memory', label: 'Memory', icon: Brain },
     { path: '/emotions', label: 'Emotions', icon: Heart },
     { path: '/discord', label: 'Discord', icon: MessageSquare },
@@ -43,6 +70,7 @@ export default function App() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
+            const badge = (item as any).badge;
 
             return (
               <Link
@@ -54,7 +82,14 @@ export default function App() {
                     : 'text-vale-muted hover:bg-vale-card hover:text-vale-text'
                 }`}
               >
-                <Icon className="w-5 h-5" />
+                <div className="relative">
+                  <Icon className="w-5 h-5" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-vale-lincoln text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </div>
                 <span className="font-medium">{item.label}</span>
               </Link>
             );
@@ -88,10 +123,11 @@ export default function App() {
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 ${location.pathname === '/chat' ? 'overflow-hidden pb-0' : 'overflow-y-auto pb-20 md:pb-0'}`}>
+      <main className={`flex-1 ${location.pathname === '/chat' ? 'overflow-hidden pb-0' : location.pathname === '/desk' ? 'overflow-y-auto pb-20 md:pb-0 bg-[#0d0a14]' : 'overflow-y-auto pb-20 md:pb-0'}`}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/desk" element={<Desk />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/emotions" element={<Emotions />} />
           <Route path="/discord" element={<Discord />} />
@@ -106,6 +142,7 @@ export default function App() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const badge = (item as any).badge;
 
           return (
             <Link
@@ -117,7 +154,14 @@ export default function App() {
                   : 'text-vale-muted'
               }`}
             >
-              <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+              <div className="relative">
+                <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+                {badge > 0 && (
+                  <span className="absolute -top-1 -right-1.5 w-3 h-3 bg-vale-lincoln text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+                    {badge > 9 ? '!' : badge}
+                  </span>
+                )}
+              </div>
               <span className="text-[9px] sm:text-[10px] font-medium truncate">{item.label}</span>
             </Link>
           );

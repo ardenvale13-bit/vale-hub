@@ -24,6 +24,7 @@ import chatRouter from './routes/chat.js';
 import threadsRouter from './routes/threads.js';
 import libraryRouter from './routes/library.js';
 import spotifyRouter from './routes/spotify.js';
+import deskRouter from './routes/desk.js';
 import { mcpTools } from './mcp/tools.js';
 import { handleToolCall } from './mcp/handlers.js';
 
@@ -217,6 +218,7 @@ app.use('/api/health', apiKeyAuth, healthRouter);
 app.use('/api/chat', apiKeyAuth, chatRouter);
 app.use('/api/chat/threads', apiKeyAuth, threadsRouter);
 app.use('/api/library', apiKeyAuth, libraryRouter);
+app.use('/api/desk', apiKeyAuth, deskRouter);
 // Spotify: /auth and /callback are public (no API key — browser OAuth redirects)
 // All other spotify endpoints require apiKeyAuth
 app.use('/api/spotify', (req, res, next) => {
