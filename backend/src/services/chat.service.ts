@@ -44,6 +44,7 @@ class ChatService {
       generateVoice?: boolean;
       voiceId?: string;
       image?: { data: string; mediaType: string };
+      refreshContext?: boolean;
       threadId?: string;
     } = {},
   ): Promise<ChatResponse> {
@@ -53,24 +54,13 @@ class ChatService {
       throw new AppError(503, 'ANTHROPIC_API_KEY is not configured. Add it to Railway environment variables.');
     }
 
-    // Auto-name thread from first message if it's still "New Chat"
-    if (options.threadId && userMessage.trim()) {
-      this.maybeNameThread(options.threadId, userMessage).catch(() => {});
-    }
-
     // Save user message to DB
-    const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined, options.threadId);
+    const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined);
 
-    // Load recent chat history (last 20 messages for context window)
-    const allHistory = await this.getRecentMessages(userId, 20, options.threadId);
-    // Filter out the message we just saved — we'll add it fresh below
-    const priorMessages = allHistory.filter((m) => m.id !== userMsg.id);
-
-    // Only inject full hub context on the FIRST message in a conversation.
-    // Subsequent messages already have it baked into the earlier history Claude sees,
-    // so re-injecting it every turn just wastes tokens.
+    // Only load full hub context when explicitly requested (refreshContext flag)
+    // This saves tokens on casual back-and-forth
     let hubContext = '';
-    if (priorMessages.length === 0) {
+    if (options.refreshContext) {
       try {
         const [orientation, spotifyData] = await Promise.all([
           orientationService.getOrientation(userId, 'Lincoln', 'standard'),
@@ -84,9 +74,13 @@ class ChatService {
       }
     }
 
-    // Build messages array for Claude from prior history
+    // Load recent chat history (last 20 messages for context window)
+    const history = await this.getRecentMessages(userId, 20);
+
+    // Build messages array for Claude — exclude the message we just saved
     const messages: { role: 'user' | 'assistant'; content: any }[] = [];
-    for (const msg of priorMessages) {
+    for (const msg of history) {
+      if (msg.id === userMsg.id) continue; // skip — we'll add it fresh
       messages.push({ role: msg.role, content: msg.content });
     }
 

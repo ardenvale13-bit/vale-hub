@@ -9,7 +9,7 @@ const router = Router();
 // Optionally include an image: { data: base64string, mediaType: 'image/jpeg' }
 router.post('/send', async (req: AuthenticatedRequest, res) => {
   try {
-    const { message, generateVoice, voiceId, image } = req.body;
+    const { message, generateVoice, voiceId, image, refreshContext } = req.body;
 
     if ((!message || !message.trim()) && !image) {
       throw new AppError(400, 'Missing required field: message or image');
@@ -31,6 +31,7 @@ router.post('/send', async (req: AuthenticatedRequest, res) => {
       generateVoice: generateVoice || false,
       voiceId,
       image: parsedImage,
+      refreshContext: !!refreshContext,
       threadId: req.body.threadId || undefined,
     });
 

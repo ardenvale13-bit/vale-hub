@@ -443,8 +443,8 @@ export interface ChatThread {
 }
 
 const chat = {
-  send: (message: string, generateVoice?: boolean, voiceId?: string, image?: { data: string; mediaType: string }, threadId?: string) =>
-    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId, threadId, ...(image ? { image } : {}) }),
+  send: (message: string, generateVoice?: boolean, voiceId?: string, image?: { data: string; mediaType: string }, refreshContext?: boolean) =>
+    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId, ...(image ? { image } : {}), ...(refreshContext ? { refreshContext: true } : {}) }),
 
   sendVoice: (audio: string, mimeType?: string, voiceId?: string) =>
     apiCall<VoiceChatResponse>('/chat/voice', 'POST', { audio, mimeType, voiceId }),
