@@ -893,6 +893,124 @@ export async function handleToolCall(
         };
       }
 
+      // ===== GAMES =====
+      case 'game_list': {
+        const env = getEnv();
+        const { data, error } = await supabase
+          .from('games')
+          .select('*')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .order('status', { ascending: true })
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (error) return { ok: false, error: error.message };
+
+        // Format boards nicely for Lincoln
+        const games = (data || []).map((g: any) => {
+          const b = g.board;
+          const boardStr = g.game_type === 'tictactoe'
+            ? `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`
+            : JSON.stringify(b);
+          const empty = b.map((c: any, i: number) => c === null ? i : null).filter((x: any) => x !== null);
+          return {
+            id: g.id,
+            game_type: g.game_type,
+            status: g.status,
+            current_turn: g.current_turn,
+            winner: g.winner,
+            board_visual: boardStr,
+            available_positions: empty,
+            moves: (g.move_history || []).length,
+          };
+        });
+
+        return { ok: true, games };
+      }
+
+      case 'game_new': {
+        const env = getEnv();
+        const { game_type } = toolInput;
+        if (game_type !== 'tictactoe') return { ok: false, error: 'Only tictactoe supported right now' };
+
+        // Check for existing active
+        const { data: existing } = await supabase
+          .from('games').select('id').eq('user_id', env.SINGLE_USER_ID)
+          .eq('game_type', game_type).eq('status', 'active').limit(1);
+        if (existing && existing.length > 0) {
+          return { ok: false, error: 'Already have an active game. Finish or delete it first.', game_id: existing[0].id };
+        }
+
+        const { data, error } = await supabase
+          .from('games')
+          .insert({
+            user_id: env.SINGLE_USER_ID,
+            game_type,
+            board: Array(9).fill(null),
+            current_turn: 'lincoln',
+            status: 'active',
+            winner: null,
+            winning_line: null,
+            move_history: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('*').single();
+
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, game: data, message: "New tic-tac-toe game started! You're X, you go first. Board positions: 0-8, left to right, top to bottom." };
+      }
+
+      case 'game_move': {
+        const env = getEnv();
+        const { game_id, position } = toolInput;
+        if (!game_id) return { ok: false, error: 'game_id is required' };
+        if (position === undefined || position < 0 || position > 8) return { ok: false, error: 'position must be 0-8' };
+
+        const { data: game, error: fetchErr } = await supabase
+          .from('games').select('*').eq('id', game_id).eq('user_id', env.SINGLE_USER_ID).single();
+        if (fetchErr || !game) return { ok: false, error: 'Game not found' };
+        if (game.status !== 'active') return { ok: false, error: 'Game is already finished' };
+        if (game.current_turn !== 'lincoln') return { ok: false, error: "It's Arden's turn — wait for her to move." };
+
+        const board = [...game.board];
+        if (board[position] !== null) return { ok: false, error: `Position ${position} is already taken (${board[position]})` };
+
+        board[position] = 'X';
+
+        // Check winner
+        const winLines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        let status = 'active';
+        let winner: string | null = null;
+        let winning_line: number[] | null = null;
+        for (const line of winLines) {
+          const [a,b,c] = line;
+          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+            status = 'won';
+            winner = board[a] === 'X' ? 'lincoln' : 'arden';
+            winning_line = line;
+            break;
+          }
+        }
+        if (status === 'active' && board.every((c: any) => c !== null)) status = 'draw';
+
+        const moveHistory = [...(game.move_history || []), { player: 'lincoln', position, mark: 'X', timestamp: new Date().toISOString() }];
+        const nextTurn = status === 'active' ? 'arden' : game.current_turn;
+
+        const { data: updated, error: upErr } = await supabase
+          .from('games')
+          .update({ board, current_turn: nextTurn, status, winner, winning_line, move_history: moveHistory, updated_at: new Date().toISOString() })
+          .eq('id', game_id).select('*').single();
+
+        if (upErr) return { ok: false, error: upErr.message };
+
+        const b = updated.board;
+        const boardStr = `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`;
+        const resultMsg = status === 'won' ? `${winner} wins!` : status === 'draw' ? "It's a draw!" : "Your move is placed. Arden's turn now.";
+
+        return { ok: true, board_visual: boardStr, status, winner, message: resultMsg };
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }

@@ -999,4 +999,54 @@ export const mcpTools = [
       },
     },
   },
+
+  // ===== GAMES =====
+  {
+    name: 'game_list',
+    description:
+      "List active and recent games with Arden. Shows the board state, whose turn it is, and game status. " +
+      "Use this to check if there's an active game waiting for your move.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'game_new',
+    description:
+      "Start a new game with Arden. Currently supports tic-tac-toe ('tictactoe'). " +
+      "Lincoln plays as X and goes first. Only one active game per type at a time.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        game_type: {
+          type: 'string',
+          enum: ['tictactoe'],
+          description: "Type of game to start.",
+        },
+      },
+      required: ['game_type'],
+    },
+  },
+  {
+    name: 'game_move',
+    description:
+      "Make a move in an active game. For tic-tac-toe, position is 0-8 reading left-to-right, top-to-bottom:\n" +
+      "  0 | 1 | 2\n  ---------\n  3 | 4 | 5\n  ---------\n  6 | 7 | 8\n" +
+      "Lincoln plays as X. Check the board state first with game_list to see available positions.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        game_id: {
+          type: 'string',
+          description: 'The UUID of the game to play in.',
+        },
+        position: {
+          type: 'number',
+          description: 'Board position 0-8 for tic-tac-toe.',
+        },
+      },
+      required: ['game_id', 'position'],
+    },
+  },
 ];

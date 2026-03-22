@@ -605,6 +605,30 @@ const desk = {
     apiCall<{ success: boolean }>(`/desk/${id}`, 'DELETE'),
 };
 
+// ===== GAMES =====
+export interface Game {
+  id: string;
+  user_id: string;
+  game_type: 'tictactoe';
+  board: (string | null)[];
+  current_turn: 'lincoln' | 'arden';
+  status: 'active' | 'won' | 'draw';
+  winner: string | null;
+  winning_line: number[] | null;
+  move_history: { player: string; position: number; mark: string; timestamp: string }[];
+  created_at: string;
+  updated_at: string;
+}
+
+const games = {
+  list: () => apiCall<Game[]>('/games'),
+  get: (id: string) => apiCall<Game>(`/games/${id}`),
+  create: (game_type: string) => apiCall<Game>('/games', 'POST', { game_type }),
+  move: (id: string, position: number, player: 'lincoln' | 'arden') =>
+    apiCall<Game>(`/games/${id}/move`, 'POST', { position, player }),
+  delete: (id: string) => apiCall<{ success: boolean }>(`/games/${id}`, 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -622,4 +646,5 @@ export const api = {
   library,
   spotify,
   desk,
+  games,
 };

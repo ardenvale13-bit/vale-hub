@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity, MessagesSquare, Mailbox } from 'lucide-react';
+import { Home, Brain, Heart, MessageSquare, Mic, BookOpen, Activity, MessagesSquare, Mailbox, Gamepad2 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Memory from './pages/Memory';
 import Emotions from './pages/Emotions';
@@ -10,6 +10,7 @@ import Journal from './pages/Journal';
 import Health from './pages/Health';
 import Chat from './pages/Chat';
 import Desk from './pages/Desk';
+import Games from './pages/Games';
 import { api } from './services/api';
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
     { path: '/', label: 'Home', icon: Home },
     { path: '/chat', label: 'Chat', icon: MessagesSquare },
     { path: '/desk', label: 'Desk', icon: Mailbox, badge: deskUnread },
+    { path: '/games', label: 'Games', icon: Gamepad2 },
     { path: '/memory', label: 'Memory', icon: Brain },
     { path: '/emotions', label: 'Emotions', icon: Heart },
     { path: '/discord', label: 'Discord', icon: MessageSquare },
@@ -128,6 +130,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/desk" element={<Desk />} />
+          <Route path="/games" element={<Games />} />
           <Route path="/memory" element={<Memory />} />
           <Route path="/emotions" element={<Emotions />} />
           <Route path="/discord" element={<Discord />} />
