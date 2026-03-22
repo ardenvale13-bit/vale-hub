@@ -31,6 +31,7 @@ router.post('/send', async (req: AuthenticatedRequest, res) => {
       generateVoice: generateVoice || false,
       voiceId,
       image: parsedImage,
+      threadId: req.body.threadId || undefined,
     });
 
     res.json(result);
@@ -89,13 +90,14 @@ router.post('/voice', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Get chat history
+// Get chat history — optionally scoped to a thread
 router.get('/history', async (req: AuthenticatedRequest, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 50;
     const before = req.query.before as string | undefined;
+    const threadId = req.query.threadId as string | undefined;
 
-    const messages = await chatService.getHistory(req.userId, limit, before);
+    const messages = await chatService.getHistory(req.userId, limit, before, threadId);
     res.json(messages);
   } catch (error) {
     if (error instanceof AppError) {
@@ -106,10 +108,11 @@ router.get('/history', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Clear chat history
+// Clear chat history (optionally scoped to a thread)
 router.delete('/history', async (req: AuthenticatedRequest, res) => {
   try {
-    await chatService.clearHistory(req.userId);
+    const threadId = req.query.threadId as string | undefined;
+    await chatService.clearHistory(req.userId, threadId);
     res.json({ success: true, message: 'Chat history cleared' });
   } catch (error) {
     if (error instanceof AppError) {

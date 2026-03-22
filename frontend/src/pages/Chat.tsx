@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, ChatMessage } from '../services/api';
-import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle, ImagePlus, X } from 'lucide-react';
+import { api, ChatMessage, ChatThread } from '../services/api';
+import { Send, Mic, MicOff, Loader2, Volume2, VolumeX, Trash2, MessageSquare, Phone, AlertCircle, ImagePlus, X, Plus, Pencil, Check } from 'lucide-react';
 
 // Render message content — parses *italic* and **bold** into real elements
 function MessageContent({ text }: { text: string }) {
@@ -64,6 +64,12 @@ export default function Chat() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [chatError, setChatError] = useState<string | null>(null);
 
+  // Threads
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
   // Voice state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingVoice, setIsProcessingVoice] = useState(false);
@@ -84,21 +90,28 @@ export default function Chat() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadHistory().then(() => {
-      // Check for book excerpt from Library → "Discuss with Lincoln"
-      const excerptJson = sessionStorage.getItem('lincoln-book-excerpt');
-      if (excerptJson) {
-        sessionStorage.removeItem('lincoln-book-excerpt');
-        try {
-          const excerpt = JSON.parse(excerptJson);
-          const prefix = excerpt.bookTitle
-            ? `[Reading "${excerpt.bookTitle}"${excerpt.bookAuthor ? ` by ${excerpt.bookAuthor}` : ''}, ${excerpt.chapterTitle}]\n\n`
-            : '';
-          setInput(`${prefix}What do you think about this passage?\n\n"${excerpt.text}"`);
-        } catch { /* ignore bad JSON */ }
-      }
+    loadThreads().then(() => {
+      loadHistory().then(() => {
+        // Check for book excerpt from Library → "Discuss with Lincoln"
+        const excerptJson = sessionStorage.getItem('lincoln-book-excerpt');
+        if (excerptJson) {
+          sessionStorage.removeItem('lincoln-book-excerpt');
+          try {
+            const excerpt = JSON.parse(excerptJson);
+            const prefix = excerpt.bookTitle
+              ? `[Reading "${excerpt.bookTitle}"${excerpt.bookAuthor ? ` by ${excerpt.bookAuthor}` : ''}, ${excerpt.chapterTitle}]\n\n`
+              : '';
+            setInput(`${prefix}What do you think about this passage?\n\n"${excerpt.text}"`);
+          } catch { /* ignore bad JSON */ }
+        }
+      });
     });
   }, []);
+
+  // Reload messages when thread changes
+  useEffect(() => {
+    loadHistory(activeThreadId || undefined);
+  }, [activeThreadId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -108,15 +121,60 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }
 
-  async function loadHistory() {
+  async function loadThreads() {
+    try {
+      const list = await api.chat.threads.list();
+      setThreads(list);
+    } catch (err) {
+      console.error('Failed to load threads:', err);
+    }
+  }
+
+  async function loadHistory(threadId?: string) {
     setIsLoadingHistory(true);
     try {
-      const history = await api.chat.history(50);
+      const history = await api.chat.history(50, undefined, threadId);
       setMessages(history);
     } catch (err) {
       console.error('Failed to load chat history:', err);
     } finally {
       setIsLoadingHistory(false);
+    }
+  }
+
+  async function handleNewThread() {
+    if (threads.length >= 5) return;
+    try {
+      const thread = await api.chat.threads.create();
+      setThreads((prev) => [thread, ...prev]);
+      setActiveThreadId(thread.id);
+      setMessages([]);
+    } catch (err) {
+      console.error('Failed to create thread:', err);
+    }
+  }
+
+  async function handleDeleteThread(threadId: string) {
+    try {
+      await api.chat.threads.delete(threadId);
+      setThreads((prev) => prev.filter((t) => t.id !== threadId));
+      if (activeThreadId === threadId) {
+        setActiveThreadId(null);
+        loadHistory(undefined);
+      }
+    } catch (err) {
+      console.error('Failed to delete thread:', err);
+    }
+  }
+
+  async function handleRenameThread(threadId: string, name: string) {
+    if (!name.trim()) return;
+    try {
+      const updated = await api.chat.threads.rename(threadId, name.trim());
+      setThreads((prev) => prev.map((t) => t.id === threadId ? updated : t));
+      setEditingThreadId(null);
+    } catch (err) {
+      console.error('Failed to rename thread:', err);
     }
   }
 
@@ -164,7 +222,7 @@ export default function Chat() {
       setChatError(null);
       const generateVoice = tab === 'voice';
       const result = await chatApiCall(
-        () => api.chat.send(userText, generateVoice, undefined, imageToSend ? { data: imageToSend.data, mediaType: imageToSend.mediaType } : undefined),
+        () => api.chat.send(userText, generateVoice, undefined, imageToSend ? { data: imageToSend.data, mediaType: imageToSend.mediaType } : undefined, activeThreadId || undefined),
         90000
       );
 
@@ -172,6 +230,9 @@ export default function Chat() {
         const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
         return [...withoutTemp, tempUserMsg, result.message];
       });
+
+      // Reload threads so auto-named thread name reflects in the tab
+      if (activeThreadId) loadThreads();
 
       if (generateVoice && result.voice_url) {
         playAudio(result.message.id, result.voice_url);
@@ -313,9 +374,12 @@ export default function Chat() {
 
   // ===== CLEAR HISTORY =====
   async function handleClearHistory() {
-    if (!confirm('Clear all chat history with Lincoln?')) return;
+    const label = activeThreadId
+      ? `"${threads.find((t) => t.id === activeThreadId)?.name || 'this thread'}"`
+      : 'the default chat history';
+    if (!confirm(`Clear all messages in ${label}?`)) return;
     try {
-      await api.chat.clearHistory();
+      await api.chat.clearHistory(activeThreadId || undefined);
       setMessages([]);
     } catch (err) {
       console.error('Failed to clear history:', err);
@@ -410,6 +474,98 @@ export default function Chat() {
           title="Clear chat history"
         >
           <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Thread tabs bar */}
+      <div className="flex items-center gap-1 px-3 py-2 bg-vale-card border-b border-vale-border overflow-x-auto shrink-0 scrollbar-hide">
+        {/* Default / legacy history tab */}
+        <button
+          onClick={() => setActiveThreadId(null)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors shrink-0 border ${
+            activeThreadId === null
+              ? 'bg-vale-lincoln/20 text-vale-lincoln border-vale-lincoln/30'
+              : 'text-vale-muted hover:text-vale-text hover:bg-vale-surface border-transparent'
+          }`}
+        >
+          <MessageSquare className="w-3 h-3" />
+          History
+        </button>
+
+        {/* Named thread tabs */}
+        {threads.map((thread) => (
+          <div
+            key={thread.id}
+            className={`group flex items-center gap-1 pl-3 pr-1 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors border ${
+              activeThreadId === thread.id
+                ? 'bg-vale-lincoln/20 text-vale-lincoln border-vale-lincoln/30'
+                : 'text-vale-muted hover:text-vale-text hover:bg-vale-surface border-transparent'
+            }`}
+          >
+            {editingThreadId === thread.id ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={() => handleRenameThread(thread.id, editingName)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRenameThread(thread.id, editingName);
+                    if (e.key === 'Escape') setEditingThreadId(null);
+                  }}
+                  className="w-24 px-1 py-0 bg-vale-surface border border-vale-lincoln/40 rounded text-xs text-vale-text focus:outline-none"
+                />
+                <button
+                  onClick={() => handleRenameThread(thread.id, editingName)}
+                  className="text-vale-lincoln hover:opacity-80"
+                >
+                  <Check className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setActiveThreadId(thread.id)}
+                  className="max-w-[100px] truncate text-left"
+                >
+                  {thread.name}
+                </button>
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ml-0.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingThreadId(thread.id);
+                      setEditingName(thread.name);
+                    }}
+                    className="p-0.5 hover:text-vale-accent transition-colors"
+                    title="Rename"
+                  >
+                    <Pencil className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Delete "${thread.name}"?`)) handleDeleteThread(thread.id);
+                    }}
+                    className="p-0.5 hover:text-red-400 transition-colors"
+                    title="Delete thread"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+
+        {/* New thread button */}
+        <button
+          onClick={handleNewThread}
+          disabled={threads.length >= 5}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-vale-muted hover:text-vale-accent hover:bg-vale-surface transition-colors disabled:opacity-30 disabled:cursor-not-allowed shrink-0 ml-auto"
+          title={threads.length >= 5 ? 'Max 5 threads' : 'New thread'}
+        >
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
 

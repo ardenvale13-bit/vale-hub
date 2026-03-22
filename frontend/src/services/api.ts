@@ -435,18 +435,32 @@ export interface VoiceChatResponse {
   error?: string;
 }
 
+export interface ChatThread {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const chat = {
-  send: (message: string, generateVoice?: boolean, voiceId?: string, image?: { data: string; mediaType: string }) =>
-    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId, ...(image ? { image } : {}) }),
+  send: (message: string, generateVoice?: boolean, voiceId?: string, image?: { data: string; mediaType: string }, threadId?: string) =>
+    apiCall<ChatResponse>('/chat/send', 'POST', { message, generateVoice, voiceId, threadId, ...(image ? { image } : {}) }),
 
   sendVoice: (audio: string, mimeType?: string, voiceId?: string) =>
     apiCall<VoiceChatResponse>('/chat/voice', 'POST', { audio, mimeType, voiceId }),
 
-  history: (limit?: number, before?: string) =>
-    apiCall<ChatMessage[]>(`/chat/history?limit=${limit || 50}${before ? '&before=' + before : ''}`),
+  history: (limit?: number, before?: string, threadId?: string) =>
+    apiCall<ChatMessage[]>(`/chat/history?limit=${limit || 50}${before ? '&before=' + before : ''}${threadId ? '&threadId=' + threadId : ''}`),
 
-  clearHistory: () =>
-    apiCall<{ success: boolean }>('/chat/history', 'DELETE'),
+  clearHistory: (threadId?: string) =>
+    apiCall<{ success: boolean }>(`/chat/history${threadId ? '?threadId=' + threadId : ''}`, 'DELETE'),
+
+  threads: {
+    list: () => apiCall<ChatThread[]>('/chat/threads'),
+    create: (name?: string) => apiCall<ChatThread>('/chat/threads', 'POST', { name }),
+    rename: (threadId: string, name: string) => apiCall<ChatThread>(`/chat/threads/${threadId}`, 'PATCH', { name }),
+    delete: (threadId: string) => apiCall<{ ok: boolean }>(`/chat/threads/${threadId}`, 'DELETE'),
+  },
 };
 
 // ===== LIBRARY =====

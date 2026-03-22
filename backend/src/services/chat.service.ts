@@ -43,7 +43,8 @@ class ChatService {
     options: {
       generateVoice?: boolean;
       voiceId?: string;
-      image?: { data: string; mediaType: string }; // base64 data + mime type
+      image?: { data: string; mediaType: string };
+      threadId?: string;
     } = {},
   ): Promise<ChatResponse> {
     const env = getEnv();
@@ -52,8 +53,13 @@ class ChatService {
       throw new AppError(503, 'ANTHROPIC_API_KEY is not configured. Add it to Railway environment variables.');
     }
 
-    // Save user message to DB (store image flag in metadata if present)
-    const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined);
+    // Auto-name thread from first message if it's still "New Chat"
+    if (options.threadId && userMessage.trim()) {
+      this.maybeNameThread(options.threadId, userMessage).catch(() => {});
+    }
+
+    // Save user message to DB
+    const userMsg = await this.saveMessage(userId, 'user', userMessage, options.image ? { has_image: true } : undefined, options.threadId);
 
     // Get hub context for Lincoln — standard depth gives full memory
     let hubContext = '';
@@ -71,7 +77,7 @@ class ChatService {
 
     // Load recent chat history (last 20 messages for context window)
     // Run in parallel with context loading where possible
-    const history = await this.getRecentMessages(userId, 20);
+    const history = await this.getRecentMessages(userId, 20, options.threadId);
 
     // Build messages array for Claude — exclude the message we just saved
     const messages: { role: 'user' | 'assistant'; content: any }[] = [];
@@ -255,16 +261,20 @@ class ChatService {
     role: 'user' | 'assistant',
     content: string,
     metadata?: Record<string, any>,
+    threadId?: string,
   ): Promise<ChatMessage> {
+    const row: any = {
+      user_id: userId,
+      role,
+      content,
+      metadata: metadata || null,
+      created_at: new Date().toISOString(),
+    };
+    if (threadId) row.thread_id = threadId;
+
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({
-        user_id: userId,
-        role,
-        content,
-        metadata: metadata || null,
-        created_at: new Date().toISOString(),
-      })
+      .insert(row)
       .select('*')
       .single();
 
@@ -272,35 +282,44 @@ class ChatService {
       throw new AppError(500, `Failed to save chat message: ${error.message}`);
     }
 
+    // Touch thread updated_at
+    if (threadId) {
+      supabase.from('chat_threads').update({ updated_at: new Date().toISOString() }).eq('id', threadId).then(() => {});
+    }
+
     return data;
   }
 
   /**
-   * Get recent messages for context
+   * Get recent messages for context — scoped to thread if provided
    */
-  async getRecentMessages(userId: string, limit: number = 20): Promise<ChatMessage[]> {
-    const { data, error } = await supabase
+  async getRecentMessages(userId: string, limit: number = 20, threadId?: string): Promise<ChatMessage[]> {
+    let query = supabase
       .from('chat_messages')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) {
-      throw new AppError(500, `Failed to load chat history: ${error.message}`);
+    if (threadId) {
+      query = query.eq('thread_id', threadId);
+    } else {
+      query = query.is('thread_id', null);
     }
 
-    // Return in chronological order
+    const { data, error } = await query;
+    if (error) throw new AppError(500, `Failed to load chat history: ${error.message}`);
     return (data || []).reverse();
   }
 
   /**
-   * Get chat history with pagination
+   * Get chat history with pagination — scoped to thread if provided
    */
   async getHistory(
     userId: string,
     limit: number = 50,
     before?: string,
+    threadId?: string,
   ): Promise<ChatMessage[]> {
     let query = supabase
       .from('chat_messages')
@@ -309,31 +328,41 @@ class ChatService {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (before) {
-      query = query.lt('created_at', before);
+    if (threadId) {
+      query = query.eq('thread_id', threadId);
+    } else {
+      query = query.is('thread_id', null);
     }
+
+    if (before) query = query.lt('created_at', before);
 
     const { data, error } = await query;
-
-    if (error) {
-      throw new AppError(500, `Failed to load chat history: ${error.message}`);
-    }
-
+    if (error) throw new AppError(500, `Failed to load chat history: ${error.message}`);
     return (data || []).reverse();
   }
 
   /**
-   * Clear chat history
+   * Clear messages in a thread (or all threadless messages)
    */
-  async clearHistory(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('user_id', userId);
-
-    if (error) {
-      throw new AppError(500, `Failed to clear chat history: ${error.message}`);
+  async clearHistory(userId: string, threadId?: string): Promise<void> {
+    let query = supabase.from('chat_messages').delete().eq('user_id', userId);
+    if (threadId) {
+      query = query.eq('thread_id', threadId);
+    } else {
+      query = query.is('thread_id', null);
     }
+    const { error } = await query;
+    if (error) throw new AppError(500, `Failed to clear chat history: ${error.message}`);
+  }
+
+  /**
+   * Auto-name a thread from its first user message (truncated to ~30 chars)
+   */
+  private async maybeNameThread(threadId: string, firstMessage: string): Promise<void> {
+    const { data } = await supabase.from('chat_threads').select('name').eq('id', threadId).single();
+    if (!data || !data.name.startsWith('New Chat') && !data.name.match(/^Chat \d+$/)) return;
+    const name = firstMessage.slice(0, 32).trim() + (firstMessage.length > 32 ? '…' : '');
+    await supabase.from('chat_threads').update({ name }).eq('id', threadId);
   }
 
   /**
