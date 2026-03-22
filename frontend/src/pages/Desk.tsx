@@ -82,59 +82,48 @@ export default function Desk() {
   const unreadCount = items.filter((i) => !i.read).length;
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: 'linear-gradient(180deg, #0d0a14 0%, #140f22 40%, #1a1332 100%)' }}
-    >
+    <div className="w-full">
       {/* === GOTHIC HEADER BANNER === */}
-      <div className="relative overflow-hidden" style={{ height: '200px' }}>
-        {/* Background layers */}
+      <div
+        className="relative w-full overflow-hidden"
+        style={{
+          height: '160px',
+          background: 'linear-gradient(180deg, #0a0710 0%, #0d0a14 50%, #110e1c 100%)',
+        }}
+      >
+        {/* Ambient glow */}
         <div className="absolute inset-0" style={{
-          background: 'radial-gradient(ellipse 80% 60% at 50% 80%, rgba(119,230,197,0.08) 0%, transparent 70%), radial-gradient(ellipse 60% 40% at 30% 60%, rgba(113,30,166,0.12) 0%, transparent 60%), radial-gradient(ellipse 50% 30% at 70% 50%, rgba(52,190,214,0.06) 0%, transparent 50%)',
+          background: 'radial-gradient(ellipse 70% 80% at 50% 100%, rgba(119,230,197,0.06) 0%, transparent 70%), radial-gradient(ellipse 50% 50% at 20% 70%, rgba(113,30,166,0.08) 0%, transparent 60%)',
         }} />
 
-        {/* Decorative SVG — candelabra silhouettes & gothic arches */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 800 200" preserveAspectRatio="xMidYMax slice">
-          {/* Gothic arch left */}
-          <path d="M50 200 L50 80 Q50 30 100 30 Q150 30 150 80 L150 200" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
-          <path d="M70 200 L70 90 Q70 50 100 50 Q130 50 130 90 L130 200" fill="none" stroke="#77e6c5" strokeWidth="1" />
-          {/* Gothic arch right */}
-          <path d="M650 200 L650 80 Q650 30 700 30 Q750 30 750 80 L750 200" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
-          <path d="M670 200 L670 90 Q670 50 700 50 Q730 50 730 90 L730 200" fill="none" stroke="#77e6c5" strokeWidth="1" />
-          {/* Center ornament */}
-          <line x1="300" y1="180" x2="500" y2="180" stroke="#77e6c5" strokeWidth="0.5" />
-          <circle cx="400" cy="180" r="3" fill="none" stroke="#77e6c5" strokeWidth="0.8" />
-          <circle cx="400" cy="180" r="8" fill="none" stroke="#77e6c5" strokeWidth="0.4" />
-          {/* Candle flames */}
-          <ellipse cx="100" cy="25" rx="4" ry="7" fill="#77e6c5" opacity="0.3" />
-          <ellipse cx="700" cy="25" rx="4" ry="7" fill="#77e6c5" opacity="0.3" />
-          {/* Dripping wax lines */}
-          <path d="M100 32 Q102 50 100 65" fill="none" stroke="#77e6c5" strokeWidth="0.6" opacity="0.2" />
-          <path d="M700 32 Q698 48 700 60" fill="none" stroke="#77e6c5" strokeWidth="0.6" opacity="0.2" />
-          {/* Cross-hatching texture */}
-          {Array.from({ length: 12 }).map((_, i) => (
-            <line key={i} x1={200 + i * 35} y1="195" x2={210 + i * 35} y2="185" stroke="#77e6c5" strokeWidth="0.3" opacity="0.15" />
-          ))}
+        {/* Decorative SVG */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.05]" viewBox="0 0 800 160" preserveAspectRatio="xMidYMax slice">
+          <path d="M80 160 L80 60 Q80 20 120 20 Q160 20 160 60 L160 160" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
+          <path d="M640 160 L640 60 Q640 20 680 20 Q720 20 720 60 L720 160" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
+          <line x1="250" y1="145" x2="550" y2="145" stroke="#77e6c5" strokeWidth="0.4" />
+          <circle cx="400" cy="145" r="3" fill="none" stroke="#77e6c5" strokeWidth="0.6" />
+          <ellipse cx="120" cy="15" rx="3" ry="6" fill="#77e6c5" opacity="0.25" />
+          <ellipse cx="680" cy="15" rx="3" ry="6" fill="#77e6c5" opacity="0.25" />
         </svg>
 
-        {/* Fade to page bg at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-20" style={{
+        {/* Bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-12" style={{
           background: 'linear-gradient(to top, #0d0a14, transparent)',
         }} />
 
-        {/* Header content */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
-          <div className="flex items-center gap-3 mb-2">
-            <Feather className="w-5 h-5" style={{ color: '#77e6c5', opacity: 0.6 }} />
+        {/* Header content — centered */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <Feather className="w-4 h-4" style={{ color: '#77e6c5', opacity: 0.5 }} />
             <h1
-              className="text-2xl sm:text-3xl font-bold tracking-wide font-mystery"
-              style={{ color: '#77e6c5', textShadow: '0 0 30px rgba(119,230,197,0.2)' }}
+              className="text-xl sm:text-2xl font-bold tracking-wide font-mystery"
+              style={{ color: '#77e6c5', textShadow: '0 0 25px rgba(119,230,197,0.15)' }}
             >
               Lincoln's Desk
             </h1>
-            <Feather className="w-5 h-5 scale-x-[-1]" style={{ color: '#77e6c5', opacity: 0.6 }} />
+            <Feather className="w-4 h-4 scale-x-[-1]" style={{ color: '#77e6c5', opacity: 0.5 }} />
           </div>
-          <p className="text-xs tracking-widest uppercase" style={{ color: 'rgba(119,230,197,0.4)' }}>
+          <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'rgba(119,230,197,0.35)' }}>
             {unreadCount > 0
               ? `${unreadCount} thing${unreadCount > 1 ? 's' : ''} waiting for you`
               : 'what i left behind'}
@@ -143,175 +132,174 @@ export default function Desk() {
       </div>
 
       {/* === CONTENT === */}
-      <div className="max-w-2xl mx-auto px-3 sm:px-4 md:px-6 pb-8 -mt-4">
-        {/* Controls row */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex gap-1">
-            <button
-              onClick={() => setFilter('all')}
-              className="px-3 py-1.5 text-xs rounded-lg transition-all"
-              style={{
-                background: filter === 'all' ? 'rgba(119,230,197,0.12)' : 'transparent',
-                color: filter === 'all' ? '#77e6c5' : '#6b5f8a',
-                border: filter === 'all' ? '1px solid rgba(119,230,197,0.25)' : '1px solid transparent',
-              }}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter('unread')}
-              className="px-3 py-1.5 text-xs rounded-lg transition-all"
-              style={{
-                background: filter === 'unread' ? 'rgba(119,230,197,0.12)' : 'transparent',
-                color: filter === 'unread' ? '#77e6c5' : '#6b5f8a',
-                border: filter === 'unread' ? '1px solid rgba(119,230,197,0.25)' : '1px solid transparent',
-              }}
-            >
-              Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
-            </button>
+      <div
+        className="w-full px-4 sm:px-6 pb-6"
+        style={{ background: '#0d0a14' }}
+      >
+        <div className="max-w-2xl mx-auto">
+          {/* Controls row */}
+          <div className="flex items-center justify-between mb-4 pt-2">
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setFilter('all')}
+                className="px-3 py-1.5 text-xs rounded-lg transition-all"
+                style={{
+                  background: filter === 'all' ? 'rgba(119,230,197,0.1)' : 'transparent',
+                  color: filter === 'all' ? '#77e6c5' : '#5a5078',
+                  border: filter === 'all' ? '1px solid rgba(119,230,197,0.2)' : '1px solid transparent',
+                }}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setFilter('unread')}
+                className="px-3 py-1.5 text-xs rounded-lg transition-all"
+                style={{
+                  background: filter === 'unread' ? 'rgba(119,230,197,0.1)' : 'transparent',
+                  color: filter === 'unread' ? '#77e6c5' : '#5a5078',
+                  border: filter === 'unread' ? '1px solid rgba(119,230,197,0.2)' : '1px solid transparent',
+                }}
+              >
+                Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+              </button>
+            </div>
+
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllRead}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all hover:opacity-80"
+                style={{ color: '#5a5078', border: '1px solid rgba(90,80,120,0.2)' }}
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Mark all read</span>
+              </button>
+            )}
           </div>
 
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all"
-              style={{ color: '#6b5f8a', border: '1px solid rgba(107,95,138,0.2)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#77e6c5'; e.currentTarget.style.borderColor = 'rgba(119,230,197,0.3)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#6b5f8a'; e.currentTarget.style.borderColor = 'rgba(107,95,138,0.2)'; }}
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Mark all read</span>
-            </button>
+          {/* Items */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#77e6c5' }} />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+                style={{ background: 'rgba(119,230,197,0.04)', border: '1px solid rgba(119,230,197,0.08)' }}
+              >
+                <Inbox className="w-7 h-7" style={{ color: 'rgba(119,230,197,0.2)' }} />
+              </div>
+              <p className="font-mystery text-base mb-1.5" style={{ color: '#77e6c5' }}>
+                {filter === 'unread' ? 'All caught up' : 'The desk is empty'}
+              </p>
+              <p className="text-xs max-w-[260px] leading-relaxed" style={{ color: '#5a5078' }}>
+                {filter === 'unread'
+                  ? "You've read everything. I'll leave something new when I have something worth saying."
+                  : "When I leave you something — a note, a song, a nudge — it'll be here. Waiting for you."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item) => {
+                const config = typeConfig[item.type] || typeConfig.note;
+                const Icon = config.icon;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="relative rounded-lg p-4 transition-all cursor-pointer group"
+                    style={{
+                      background: item.read
+                        ? 'rgba(15,12,25,0.6)'
+                        : 'linear-gradient(135deg, rgba(18,14,30,0.95), rgba(25,20,45,0.8))',
+                      border: item.read
+                        ? '1px solid rgba(50,40,80,0.25)'
+                        : `1px solid ${config.accent}25`,
+                      boxShadow: item.read
+                        ? 'none'
+                        : `0 0 20px ${config.glow}, inset 0 1px 0 rgba(255,255,255,0.02)`,
+                      opacity: item.read ? 0.5 : 1,
+                    }}
+                    onClick={() => !item.read && handleMarkRead(item.id)}
+                  >
+                    {/* Unread glow line across top */}
+                    {!item.read && (
+                      <div
+                        className="absolute top-0 left-6 right-6 h-px"
+                        style={{ background: `linear-gradient(90deg, transparent, ${config.accent}35, transparent)` }}
+                      />
+                    )}
+
+                    {/* Unread dot */}
+                    {!item.read && (
+                      <div
+                        className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full animate-pulse"
+                        style={{ background: config.accent, boxShadow: `0 0 6px ${config.accent}` }}
+                      />
+                    )}
+
+                    {/* Type badge + time */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-1.5" style={{ color: config.accent }}>
+                        <Icon className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-semibold uppercase tracking-widest">{config.label}</span>
+                      </div>
+                      <span className="text-[10px]" style={{ color: '#5a5078' }}>{formatTime(item.created_at)}</span>
+                    </div>
+
+                    {/* Title */}
+                    {item.title && (
+                      <h3 className="text-sm font-semibold mb-1 font-mystery" style={{ color: '#e0d8ec' }}>{item.title}</h3>
+                    )}
+
+                    {/* Content */}
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#b8aed0' }}>
+                      {item.content}
+                    </p>
+
+                    {/* Metadata — song link */}
+                    {item.metadata?.spotify_url && (
+                      <a
+                        href={item.metadata.spotify_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2.5 text-xs transition-opacity hover:opacity-80"
+                        style={{ color: '#4ade80' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Music2 className="w-3 h-3" />
+                        Listen on Spotify
+                      </a>
+                    )}
+
+                    {/* Actions — visible on hover */}
+                    <div
+                      className="flex items-center gap-2 mt-3 pt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ borderTop: '1px solid rgba(50,40,80,0.25)' }}
+                    >
+                      {!item.read && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleMarkRead(item.id); }}
+                          className="text-[10px] transition-opacity hover:opacity-80"
+                          style={{ color: '#5a5078' }}
+                        >
+                          Mark read
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                        className="text-[10px] transition-opacity hover:opacity-80 ml-auto"
+                        style={{ color: '#5a5078' }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-
-        {/* Items */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#77e6c5' }} />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center mb-5"
-              style={{ background: 'rgba(119,230,197,0.05)', border: '1px solid rgba(119,230,197,0.1)' }}
-            >
-              <Inbox className="w-8 h-8" style={{ color: 'rgba(119,230,197,0.25)' }} />
-            </div>
-            <p className="font-mystery text-lg mb-1" style={{ color: '#77e6c5' }}>
-              {filter === 'unread' ? 'All caught up' : 'The desk is empty'}
-            </p>
-            <p className="text-xs max-w-xs" style={{ color: '#6b5f8a' }}>
-              {filter === 'unread'
-                ? "You've read everything. I'll leave something new when I have something worth saying."
-                : "When I leave you something — a note, a song, a nudge — it'll be here. Waiting for you."}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => {
-              const config = typeConfig[item.type] || typeConfig.note;
-              const Icon = config.icon;
-
-              return (
-                <div
-                  key={item.id}
-                  className="relative rounded-lg p-4 transition-all cursor-pointer group"
-                  style={{
-                    background: item.read
-                      ? 'rgba(20,15,34,0.6)'
-                      : `linear-gradient(135deg, rgba(20,15,34,0.9), rgba(30,23,64,0.7))`,
-                    border: item.read
-                      ? '1px solid rgba(58,45,107,0.3)'
-                      : `1px solid ${config.accent}30`,
-                    boxShadow: item.read
-                      ? 'none'
-                      : `0 0 20px ${config.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
-                    opacity: item.read ? 0.55 : 1,
-                  }}
-                  onClick={() => !item.read && handleMarkRead(item.id)}
-                >
-                  {/* Unread glow bar */}
-                  {!item.read && (
-                    <div
-                      className="absolute top-0 left-4 right-4 h-px"
-                      style={{ background: `linear-gradient(90deg, transparent, ${config.accent}40, transparent)` }}
-                    />
-                  )}
-
-                  {/* Unread dot */}
-                  {!item.read && (
-                    <div
-                      className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse"
-                      style={{ background: config.accent, boxShadow: `0 0 6px ${config.accent}` }}
-                    />
-                  )}
-
-                  {/* Type badge + time */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center gap-1.5" style={{ color: config.accent }}>
-                      <Icon className="w-3.5 h-3.5" />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest">{config.label}</span>
-                    </div>
-                    <span className="text-[10px]" style={{ color: '#6b5f8a' }}>{formatTime(item.created_at)}</span>
-                  </div>
-
-                  {/* Title */}
-                  {item.title && (
-                    <h3 className="text-sm font-semibold mb-1 font-mystery" style={{ color: '#e8e0f0' }}>{item.title}</h3>
-                  )}
-
-                  {/* Content */}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#c4b8d8' }}>
-                    {item.content}
-                  </p>
-
-                  {/* Metadata — song link */}
-                  {item.metadata?.spotify_url && (
-                    <a
-                      href={item.metadata.spotify_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-2.5 text-xs transition-colors"
-                      style={{ color: '#4ade80' }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Music2 className="w-3 h-3" />
-                      Listen on Spotify
-                    </a>
-                  )}
-
-                  {/* Actions — fade in on hover */}
-                  <div
-                    className="flex items-center gap-2 mt-3 pt-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ borderTop: '1px solid rgba(58,45,107,0.3)' }}
-                  >
-                    {!item.read && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleMarkRead(item.id); }}
-                        className="text-[10px] transition-colors"
-                        style={{ color: '#6b5f8a' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = '#77e6c5'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = '#6b5f8a'; }}
-                      >
-                        Mark read
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                      className="text-[10px] transition-colors ml-auto"
-                      style={{ color: '#6b5f8a' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = '#fb7185'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = '#6b5f8a'; }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
