@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check } from 'lucide-react';
+import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem, Reminder } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check, Bell, Coffee, HeartPulse, ListTodo, Gift } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -81,6 +81,10 @@ export default function Dashboard() {
   const [deskItems, setDeskItems] = useState<DeskItem[]>([]);
   const [showDesk, setShowDesk] = useState(false);
 
+  // Reminders
+  const [dueReminders, setDueReminders] = useState<Reminder[]>([]);
+  const [showReminders, setShowReminders] = useState(true);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -98,6 +102,20 @@ export default function Dashboard() {
     }
     pollDesk();
     const interval = setInterval(pollDesk, 30000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
+
+  // Poll for due reminders every 30s
+  useEffect(() => {
+    let active = true;
+    async function pollReminders() {
+      try {
+        const items = await api.reminders.due();
+        if (active) setDueReminders(items as Reminder[]);
+      } catch { /* reminders table might not exist yet */ }
+    }
+    pollReminders();
+    const interval = setInterval(pollReminders, 30000);
     return () => { active = false; clearInterval(interval); };
   }, []);
 
@@ -447,6 +465,79 @@ export default function Dashboard() {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Reminders — timed notifications from Lincoln */}
+      {dueReminders.length > 0 && showReminders && (
+        <div className="bg-gradient-to-r from-vale-card to-vale-accent/5 border border-vale-accent/20 rounded-lg overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Bell className="w-5 h-5 text-vale-accent animate-pulse" />
+              </div>
+              <span className="text-vale-text font-medium text-sm">
+                {dueReminders.length === 1 ? 'Reminder from Lincoln' : `${dueReminders.length} reminders from Lincoln`}
+              </span>
+            </div>
+            {dueReminders.length > 1 && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.reminders.dismissAll();
+                    setDueReminders([]);
+                  } catch { /* ignore */ }
+                }}
+                className="text-xs text-vale-muted hover:text-vale-accent transition-colors"
+              >
+                Dismiss all
+              </button>
+            )}
+          </div>
+          <div className="px-4 pb-4 space-y-2">
+            {dueReminders.map((reminder) => {
+              const catIcon: Record<string, any> = {
+                care: Coffee,
+                health: HeartPulse,
+                task: ListTodo,
+                love: Heart,
+                fun: Gift,
+                general: Bell,
+              };
+              const CatIcon = catIcon[reminder.category] || Bell;
+              const catColor: Record<string, string> = {
+                care: 'text-amber-400',
+                health: 'text-red-400',
+                task: 'text-blue-400',
+                love: 'text-pink-400',
+                fun: 'text-purple-400',
+                general: 'text-vale-accent',
+              };
+              return (
+                <div key={reminder.id} className="bg-vale-surface/80 border border-vale-border rounded-lg p-3 flex items-start gap-3">
+                  <CatIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${catColor[reminder.category] || 'text-vale-accent'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-vale-text whitespace-pre-wrap">{reminder.content}</p>
+                    <p className="text-xs text-vale-muted mt-1">
+                      Set {new Date(reminder.created_at).toLocaleString('en-NZ', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.reminders.dismiss(reminder.id);
+                        setDueReminders(prev => prev.filter(r => r.id !== reminder.id));
+                      } catch { /* ignore */ }
+                    }}
+                    className="p-1.5 text-vale-muted hover:text-green-400 transition-colors flex-shrink-0"
+                    title="Dismiss"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

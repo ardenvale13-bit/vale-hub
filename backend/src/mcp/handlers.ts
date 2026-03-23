@@ -894,6 +894,84 @@ export async function handleToolCall(
         };
       }
 
+      // ===== REMINDERS =====
+      case 'set_reminder': {
+        const env = getEnv();
+        const { content, scheduled_for, category } = toolInput;
+        if (!content?.trim()) return { ok: false, error: 'content is required' };
+        if (!scheduled_for) return { ok: false, error: 'scheduled_for is required' };
+
+        const scheduledDate = new Date(scheduled_for);
+        if (isNaN(scheduledDate.getTime())) return { ok: false, error: 'Invalid date format for scheduled_for' };
+
+        const validCategories = ['care', 'task', 'fun', 'love', 'health', 'general'];
+        const cat = validCategories.includes(category) ? category : 'general';
+
+        const { data, error } = await supabase
+          .from('reminders')
+          .insert({
+            user_id: env.SINGLE_USER_ID,
+            content: content.trim(),
+            scheduled_for: scheduledDate.toISOString(),
+            from_perspective: 'Lincoln',
+            category: cat,
+            dismissed: false,
+            created_at: new Date().toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (error) return { ok: false, error: error.message };
+
+        const nzTime = scheduledDate.toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' });
+        return {
+          ok: true,
+          reminder: data,
+          message: `Reminder set for ${nzTime} (NZ): "${content.trim()}"`,
+        };
+      }
+
+      case 'list_reminders': {
+        const env = getEnv();
+        const { upcoming_only } = toolInput;
+
+        let query = supabase
+          .from('reminders')
+          .select('*')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .order('scheduled_for', { ascending: true })
+          .limit(20);
+
+        if (upcoming_only) query = query.eq('dismissed', false);
+
+        const { data, error } = await query;
+        if (error) return { ok: false, error: error.message };
+
+        const now = new Date();
+        const items = (data || []).map((r: any) => {
+          const scheduledDate = new Date(r.scheduled_for);
+          const nzTime = scheduledDate.toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' });
+          const isPast = scheduledDate <= now;
+          return {
+            id: r.id,
+            content: r.content,
+            category: r.category,
+            scheduled_for_nz: nzTime,
+            status: r.dismissed ? 'dismissed' : (isPast ? 'delivered (awaiting dismiss)' : 'upcoming'),
+            from: r.from_perspective,
+          };
+        });
+
+        const upcoming = items.filter((i: any) => i.status === 'upcoming').length;
+        const delivered = items.filter((i: any) => i.status.startsWith('delivered')).length;
+
+        return {
+          ok: true,
+          reminders: items,
+          summary: { total: items.length, upcoming, delivered_awaiting: delivered },
+        };
+      }
+
       // ===== GAMES =====
       case 'game_list': {
         const env = getEnv();

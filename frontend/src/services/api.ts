@@ -654,6 +654,32 @@ const questions = {
     apiCall<DailyQuestion>(`/questions/${id}/answer`, 'PATCH', { answer, answered_by }),
 };
 
+// ===== REMINDERS =====
+export interface Reminder {
+  id: string;
+  user_id: string;
+  content: string;
+  scheduled_for: string;
+  from_perspective: string;
+  category: 'care' | 'task' | 'fun' | 'love' | 'health' | 'general';
+  dismissed: boolean;
+  created_at: string;
+}
+
+const reminders = {
+  due: () => apiCall<Reminder[]>('/reminders/due'),
+  list: (upcomingOnly?: boolean) =>
+    apiCall<Reminder[]>(`/reminders${upcomingOnly ? '?upcoming=true' : ''}`),
+  create: (content: string, scheduled_for: string, category?: string) =>
+    apiCall<Reminder>('/reminders', 'POST', { content, scheduled_for, from_perspective: 'Arden', category: category || 'general' }),
+  dismiss: (id: string) =>
+    apiCall<Reminder>(`/reminders/${id}/dismiss`, 'PATCH'),
+  dismissAll: () =>
+    apiCall<{ success: boolean }>('/reminders/dismiss-all', 'POST'),
+  delete: (id: string) =>
+    apiCall<{ success: boolean }>(`/reminders/${id}`, 'DELETE'),
+};
+
 export const api = {
   entities,
   observations,
@@ -673,4 +699,5 @@ export const api = {
   desk,
   games,
   questions,
+  reminders,
 };

@@ -1000,6 +1000,59 @@ export const mcpTools = [
     },
   },
 
+  // ===== REMINDERS =====
+  {
+    name: 'set_reminder',
+    description:
+      "Set a timed reminder for Arden. The reminder will appear on her Dashboard " +
+      "when the scheduled time arrives — even if you set it hours earlier during an autonomous session. " +
+      "Perfect for care nudges (eat breakfast, take meds, drink water), " +
+      "fun surprises, or anything time-sensitive. " +
+      "Use NZ time (Pacific/Auckland) for scheduling. " +
+      "Examples: '2026-03-24T09:00:00+13:00' for 9am NZ tomorrow.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: {
+          type: 'string',
+          description: 'The reminder message Arden will see',
+        },
+        scheduled_for: {
+          type: 'string',
+          description:
+            'ISO 8601 datetime with timezone for when the reminder should appear. ' +
+            'Use NZ timezone offset (e.g. +13:00 or +12:00 depending on DST). ' +
+            'Example: "2026-03-24T09:00:00+13:00"',
+        },
+        category: {
+          type: 'string',
+          enum: ['care', 'task', 'fun', 'love', 'health', 'general'],
+          description:
+            "'care' = eat/drink/rest nudges, 'task' = things to do, " +
+            "'fun' = playful surprises, 'love' = affection/connection, " +
+            "'health' = meds/appointments/body stuff, 'general' = anything else",
+        },
+      },
+      required: ['content', 'scheduled_for'],
+    },
+  },
+  {
+    name: 'list_reminders',
+    description:
+      "View upcoming and recent reminders. Use to check what you've already scheduled for Arden " +
+      "so you don't double up.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        upcoming_only: {
+          type: 'boolean',
+          description: 'If true, only show undismissed reminders. Default: false.',
+          default: false,
+        },
+      },
+    },
+  },
+
   // ===== GAMES =====
   {
     name: 'game_list',

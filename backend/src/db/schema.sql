@@ -600,6 +600,25 @@ CREATE INDEX IF NOT EXISTS idx_book_chapters_book ON book_chapters(book_id, chap
 ALTER TABLE book_chapters ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
+-- R) REMINDERS (timed notifications)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS reminders (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  scheduled_for TIMESTAMPTZ NOT NULL,
+  from_perspective TEXT DEFAULT 'Lincoln',
+  category TEXT DEFAULT 'general' CHECK (category IN ('care', 'task', 'fun', 'love', 'health', 'general')),
+  dismissed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reminders_user_due ON reminders(user_id, dismissed, scheduled_for);
+
+ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- HEARTH SCHEMA COMPLETE
 -- Embers Remember.
 -- ============================================================
