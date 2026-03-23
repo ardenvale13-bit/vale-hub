@@ -43,19 +43,24 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
 router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
-    const { limit, days } = req.query;
+    const { limit, days, category, entryType } = req.query;
     const limitNum = limit ? parseInt(String(limit)) : 50;
     const daysBack = days ? parseInt(String(days)) : 30;
 
     const cutoffTime = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 
-    const { data: entries, error: entriesError } = await supabase
+    let query = supabase
       .from('journal_entries')
       .select('*')
       .eq('user_id', req.userId)
       .gte('created_at', cutoffTime.toISOString())
       .order('created_at', { ascending: false })
       .limit(limitNum);
+
+    if (category) query = query.eq('category', String(category));
+    if (entryType) query = query.eq('entry_type', String(entryType));
+
+    const { data: entries, error: entriesError } = await query;
 
     if (entriesError) throw entriesError;
 

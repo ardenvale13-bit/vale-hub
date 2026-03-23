@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive } from 'lucide-react';
+import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -77,10 +77,28 @@ export default function Dashboard() {
   const [imageCaption, setImageCaption] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Lincoln's Desk notifications
+  const [deskItems, setDeskItems] = useState<DeskItem[]>([]);
+  const [showDesk, setShowDesk] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadDashboard();
+  }, []);
+
+  // Poll desk for unread items every 30s
+  useEffect(() => {
+    let active = true;
+    async function pollDesk() {
+      try {
+        const items = await api.desk.list(true);
+        if (active) setDeskItems(items as DeskItem[]);
+      } catch { /* desk might not be set up yet */ }
+    }
+    pollDesk();
+    const interval = setInterval(pollDesk, 30000);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   // Spotify polling — every 10s
@@ -367,6 +385,71 @@ export default function Dashboard() {
 
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
+      {/* Lincoln's Desk — unread notifications */}
+      {deskItems.length > 0 && (
+        <div className="bg-vale-card border border-vale-accent/30 rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowDesk(!showDesk)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-vale-surface/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Inbox className="w-5 h-5 text-vale-accent" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-vale-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {deskItems.length}
+                </span>
+              </div>
+              <span className="text-vale-text font-medium text-sm">
+                Lincoln left {deskItems.length === 1 ? 'something' : `${deskItems.length} things`} on your desk
+              </span>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-vale-muted transition-transform ${showDesk ? 'rotate-180' : ''}`} />
+          </button>
+          {showDesk && (
+            <div className="px-4 pb-4 space-y-2">
+              {deskItems.map((item) => (
+                <div key={item.id} className="bg-vale-surface border border-vale-border rounded-lg p-3 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold text-vale-accent uppercase">{item.type}</span>
+                      {item.title && <span className="text-sm font-medium text-vale-text truncate">{item.title}</span>}
+                    </div>
+                    <p className="text-sm text-vale-text/80 whitespace-pre-wrap">{item.content}</p>
+                    <p className="text-xs text-vale-muted mt-1">{new Date(item.created_at).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.desk.markRead(item.id);
+                        setDeskItems(prev => prev.filter(d => d.id !== item.id));
+                      } catch { /* ignore */ }
+                    }}
+                    className="p-1.5 text-vale-muted hover:text-green-400 transition-colors flex-shrink-0"
+                    title="Mark as read"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {deskItems.length > 1 && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await api.desk.markAllRead();
+                      setDeskItems([]);
+                      setShowDesk(false);
+                    } catch { /* ignore */ }
+                  }}
+                  className="text-xs text-vale-muted hover:text-vale-accent transition-colors"
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Top Row: Status Panel + Love-O-Meter + Lincoln corner */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Arden Status Panel */}
