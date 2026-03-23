@@ -30,6 +30,7 @@ import questionsRouter from './routes/questions.js';
 import remindersRouter from './routes/reminders.js';
 import { mcpTools } from './mcp/tools.js';
 import { handleToolCall } from './mcp/handlers.js';
+import { startReminderScheduler } from './services/reminder.scheduler.js';
 
 const app = express();
 const env = getEnv();
@@ -267,6 +268,8 @@ async function start() {
     const host = '0.0.0.0';
     app.listen(env.PORT, host, () => {
       console.log(`Vale server running on ${host}:${env.PORT} [${env.NODE_ENV}]`);
+      // Start background reminder scheduler — checks every 60s for due reminders
+      startReminderScheduler();
     });
   } catch (error) {
     console.error('Failed to start server:', error);

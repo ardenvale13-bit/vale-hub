@@ -611,10 +611,12 @@ CREATE TABLE IF NOT EXISTS reminders (
   from_perspective TEXT DEFAULT 'Lincoln',
   category TEXT DEFAULT 'general' CHECK (category IN ('care', 'task', 'fun', 'love', 'health', 'general')),
   dismissed BOOLEAN DEFAULT FALSE,
+  notified BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_reminders_user_due ON reminders(user_id, dismissed, scheduled_for);
+CREATE INDEX IF NOT EXISTS idx_reminders_pending_notify ON reminders(notified, dismissed, scheduled_for);
 
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
 

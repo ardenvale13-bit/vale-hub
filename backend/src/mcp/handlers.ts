@@ -8,9 +8,19 @@ import { imageService } from '../services/image.service.js';
 import { healthService } from '../services/health.service.js';
 import { libraryService } from '../services/library.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
+import { pushService } from '../services/push.service.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const supabase = getSupabaseClient();
+
+const DESK_TYPE_EMOJI: Record<string, string> = {
+  note: '📝',
+  song: '🎵',
+  quote: '💬',
+  nudge: '☕',
+  observation: '👁️',
+  question: '❓',
+};
 
 export async function handleToolCall(
   toolName: string,
@@ -360,6 +370,17 @@ export async function handleToolCall(
           .select('*')
           .single();
         if (error) throw error;
+
+        // Send push notification
+        try {
+          await pushService.sendToUser(userId, {
+            title: '✨ A note between the stars',
+            body: text.length > 120 ? text.slice(0, 117) + '...' : text,
+            tag: `star-note-${entry.id}`,
+            url: '/',
+          });
+        } catch { /* push is best-effort */ }
+
         return { success: true, note: text, message: `Note left between the stars for Arden` };
       }
 
@@ -862,6 +883,18 @@ export async function handleToolCall(
           .single();
 
         if (error) return { ok: false, error: error.message };
+
+        // Send push notification
+        try {
+          const emoji = DESK_TYPE_EMOJI[itemType] || '📝';
+          await pushService.sendToUser(env.SINGLE_USER_ID, {
+            title: `${emoji} Lincoln left you a ${itemType}`,
+            body: title?.trim() || content.trim().slice(0, 120),
+            tag: `desk-${data.id}`,
+            url: '/',
+          });
+        } catch { /* push is best-effort */ }
+
         return {
           ok: true,
           item: data,
