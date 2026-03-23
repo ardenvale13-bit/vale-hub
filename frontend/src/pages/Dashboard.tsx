@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, MessageCircleQuestion, Archive } from 'lucide-react';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -543,7 +543,7 @@ export default function Dashboard() {
           <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <MessageCircleQuestion className="w-4 h-4 text-vale-accent" />
+                <HelpCircle className="w-4 h-4 text-vale-accent" />
                 <span className="text-vale-accent font-semibold text-sm">Daily Question</span>
                 <span className="text-xs text-vale-muted hidden sm:inline">· A thread between us</span>
               </div>
