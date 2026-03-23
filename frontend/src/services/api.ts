@@ -632,6 +632,28 @@ const games = {
   delete: (id: string) => apiCall<{ success: boolean }>(`/games/${id}`, 'DELETE'),
 };
 
+// ===== DAILY QUESTIONS =====
+export interface DailyQuestion {
+  id: string;
+  user_id: string;
+  question: string;
+  asked_by: 'lincoln' | 'arden';
+  answer: string | null;
+  answered_by: 'lincoln' | 'arden' | null;
+  answered_at: string | null;
+  created_at: string;
+}
+
+const questions = {
+  current: () => apiCall<DailyQuestion | null>('/questions/current'),
+  list: (limit?: number, offset?: number) =>
+    apiCall<{ questions: DailyQuestion[]; total: number }>(`/questions?limit=${limit || 30}&offset=${offset || 0}`),
+  ask: (question: string, asked_by: 'lincoln' | 'arden') =>
+    apiCall<DailyQuestion>('/questions', 'POST', { question, asked_by }),
+  answer: (id: string, answer: string, answered_by: 'lincoln' | 'arden') =>
+    apiCall<DailyQuestion>(`/questions/${id}/answer`, 'PATCH', { answer, answered_by }),
+};
+
 export const api = {
   entities,
   observations,
@@ -650,4 +672,5 @@ export const api = {
   spotify,
   desk,
   games,
+  questions,
 };

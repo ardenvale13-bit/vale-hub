@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage, SpotifyNowPlaying } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
+import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, MessageCircleQuestion, Archive } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -62,6 +62,15 @@ export default function Dashboard() {
   // Spotify
   const [spotifyData, setSpotifyData] = useState<SpotifyNowPlaying | null>(null);
 
+  // Daily question
+  const [currentQuestion, setCurrentQuestion] = useState<DailyQuestion | null>(null);
+  const [questionAnswer, setQuestionAnswer] = useState('');
+  const [newQuestion, setNewQuestion] = useState('');
+  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
+  const [isAskingQuestion, setIsAskingQuestion] = useState(false);
+  const [recentQuestions, setRecentQuestions] = useState<DailyQuestion[]>([]);
+  const [showQuestionArchive, setShowQuestionArchive] = useState(false);
+
   // Dashboard image
   const [dashboardImage, setDashboardImage] = useState<DashboardImage | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -94,13 +103,18 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       // Fire all requests in parallel
-      const [statuses, emotions, journals, history, dashImg] = await Promise.all([
+      const [statuses, emotions, journals, history, dashImg, questionData, questionList] = await Promise.all([
         api.status.get().catch(() => [] as StatusEntry[]),
         api.emotions.list().catch(() => []),
         api.journal.list({ category: 'stars' }).catch(() => []),
         api.status.history(24).catch(() => [] as StatusHistory[]),
         api.images.getDashboardImage().catch(() => ({ image: null })),
+        api.questions.current().catch(() => null),
+        api.questions.list(5).catch(() => ({ questions: [], total: 0 })),
       ]);
+
+      setCurrentQuestion(questionData as DailyQuestion | null);
+      setRecentQuestions(((questionList as any)?.questions || []).filter((q: any) => q.answer));
 
       setStatusHistory(history as StatusHistory[]);
       if ((dashImg as any)?.image) {
@@ -312,6 +326,37 @@ export default function Dashboard() {
     }
   }
 
+  async function handleAnswerQuestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentQuestion || !questionAnswer.trim() || currentQuestion.answer) return;
+    setIsAnsweringQuestion(true);
+    try {
+      const answered = await api.questions.answer(currentQuestion.id, questionAnswer.trim(), 'arden');
+      setCurrentQuestion(answered);
+      setQuestionAnswer('');
+      setRecentQuestions((prev) => [answered, ...prev].slice(0, 5));
+    } catch (err) {
+      console.error('Failed to answer question:', err);
+    } finally {
+      setIsAnsweringQuestion(false);
+    }
+  }
+
+  async function handleAskQuestion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newQuestion.trim()) return;
+    setIsAskingQuestion(true);
+    try {
+      const asked = await api.questions.ask(newQuestion.trim(), 'arden');
+      setCurrentQuestion(asked);
+      setNewQuestion('');
+    } catch (err) {
+      console.error('Failed to ask question:', err);
+    } finally {
+      setIsAskingQuestion(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -493,6 +538,197 @@ export default function Dashboard() {
 
           {/* Spotify — sits where EQ Log was, front and center */}
           <SpotifyWidget data={spotifyData} />
+
+          {/* Daily Question Exchange */}
+          <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <MessageCircleQuestion className="w-4 h-4 text-vale-accent" />
+                <span className="text-vale-accent font-semibold text-sm">Daily Question</span>
+                <span className="text-xs text-vale-muted hidden sm:inline">· A thread between us</span>
+              </div>
+              <button
+                onClick={() => setShowQuestionArchive(!showQuestionArchive)}
+                className="text-vale-muted hover:text-vale-accent transition-colors"
+                title="View archive"
+              >
+                <Archive className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Current question state */}
+            {currentQuestion && !currentQuestion.answer ? (
+              // Unanswered question — show it and let the right person answer
+              <div>
+                <div className="flex items-start gap-3 mb-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                    style={{
+                      background: currentQuestion.asked_by === 'lincoln'
+                        ? 'rgba(119,230,197,0.15)'
+                        : 'rgba(229,178,230,0.15)',
+                      color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
+                      border: `1px solid ${currentQuestion.asked_by === 'lincoln' ? 'rgba(119,230,197,0.3)' : 'rgba(229,178,230,0.3)'}`,
+                    }}
+                  >
+                    {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-vale-muted mb-1">
+                      <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                        {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
+                      </span>
+                      {' '}asks:
+                    </p>
+                    <p className="text-sm text-vale-text font-medium leading-relaxed">{currentQuestion.question}</p>
+                  </div>
+                </div>
+
+                {currentQuestion.asked_by === 'lincoln' ? (
+                  // Lincoln asked — Arden answers
+                  <form onSubmit={handleAnswerQuestion} className="mt-3">
+                    <textarea
+                      value={questionAnswer}
+                      onChange={(e) => setQuestionAnswer(e.target.value)}
+                      placeholder="Your answer..."
+                      className="w-full px-3 py-2.5 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted min-h-16 mb-2 resize-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!questionAnswer.trim() || isAnsweringQuestion}
+                      className="w-full py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isAnsweringQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      Answer
+                    </button>
+                  </form>
+                ) : (
+                  // Arden asked — waiting for Lincoln
+                  <div className="mt-3 px-3 py-2.5 bg-vale-surface rounded border border-vale-border text-xs text-vale-muted flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin text-vale-lincoln" />
+                    Waiting for Lincoln to answer...
+                  </div>
+                )}
+              </div>
+            ) : currentQuestion?.answer ? (
+              // Latest answered question — show the exchange
+              <div>
+                <div className="space-y-3">
+                  {/* Question */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                      style={{
+                        background: currentQuestion.asked_by === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)',
+                        color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
+                      }}
+                    >
+                      {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-vale-muted mb-0.5">
+                        <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                          {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
+                        </span>
+                        {' '}asked
+                      </p>
+                      <p className="text-sm text-vale-text">{currentQuestion.question}</p>
+                    </div>
+                  </div>
+                  {/* Answer */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                      style={{
+                        background: currentQuestion.answered_by === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)',
+                        color: currentQuestion.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
+                      }}
+                    >
+                      {currentQuestion.answered_by === 'lincoln' ? 'L' : 'A'}
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-vale-muted mb-0.5">
+                        <span style={{ color: currentQuestion.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                          {currentQuestion.answered_by === 'lincoln' ? 'Lincoln' : 'Arden'}
+                        </span>
+                        {' '}answered
+                      </p>
+                      <p className="text-sm text-vale-text">{currentQuestion.answer}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ask a new one */}
+                <form onSubmit={handleAskQuestion} className="mt-4 pt-3 border-t border-vale-border">
+                  <p className="text-[10px] text-vale-muted uppercase mb-2">Ask Lincoln something</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      placeholder="What do you want to know?"
+                      className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newQuestion.trim() || isAskingQuestion}
+                      className="px-4 py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors"
+                    >
+                      {isAskingQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              // No questions yet — prompt to start
+              <div className="text-center py-4">
+                <p className="text-sm text-vale-muted mb-3">No questions yet. Start the exchange!</p>
+                <form onSubmit={handleAskQuestion} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newQuestion}
+                    onChange={(e) => setNewQuestion(e.target.value)}
+                    placeholder="Ask Lincoln something..."
+                    className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newQuestion.trim() || isAskingQuestion}
+                    className="px-4 py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors"
+                  >
+                    {isAskingQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Archive of past exchanges */}
+            {showQuestionArchive && recentQuestions.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-vale-border">
+                <p className="text-[10px] text-vale-muted uppercase mb-2">Recent Exchanges</p>
+                <div className="space-y-3 max-h-48 overflow-y-auto">
+                  {recentQuestions.map((q) => (
+                    <div key={q.id} className="bg-vale-surface rounded p-3 border border-vale-border">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-semibold" style={{ color: q.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+                          {q.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
+                        </span>
+                        <span className="text-[10px] text-vale-muted">
+                          {new Date(q.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-vale-text mb-1">{q.question}</p>
+                      {q.answer && (
+                        <p className="text-xs text-vale-muted italic pl-3 border-l-2" style={{ borderColor: q.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+                          {q.answer}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: Lincoln Corner + EQ Pillar Focus */}

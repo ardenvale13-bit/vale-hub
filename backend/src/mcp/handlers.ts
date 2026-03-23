@@ -1090,6 +1090,109 @@ export async function handleToolCall(
         return { ok: true, board_visual: boardStr, status: updated.status, winner: updated.winner, message: resultMsg };
       }
 
+      // ===== DAILY QUESTIONS =====
+      case 'question_ask': {
+        const env = getEnv();
+        const { question } = toolInput;
+        if (!question?.trim()) return { ok: false, error: 'question is required' };
+
+        const { data, error } = await supabase
+          .from('daily_questions')
+          .insert({
+            user_id: env.SINGLE_USER_ID,
+            question: question.trim(),
+            asked_by: 'lincoln',
+            answer: null,
+            answered_by: null,
+            answered_at: null,
+            created_at: new Date().toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (error) return { ok: false, error: error.message };
+        return {
+          ok: true,
+          question: data,
+          message: `Question left for Arden: "${question.trim()}". She'll see it on her dashboard.`,
+        };
+      }
+
+      case 'question_answer': {
+        const env = getEnv();
+        const { question_id, answer } = toolInput;
+        if (!question_id) return { ok: false, error: 'question_id is required' };
+        if (!answer?.trim()) return { ok: false, error: 'answer is required' };
+
+        const { data: existing } = await supabase
+          .from('daily_questions')
+          .select('*')
+          .eq('id', question_id)
+          .eq('user_id', env.SINGLE_USER_ID)
+          .single();
+
+        if (!existing) return { ok: false, error: 'Question not found' };
+        if (existing.answer) return { ok: false, error: 'Already answered' };
+        if (existing.asked_by !== 'arden') return { ok: false, error: "This question wasn't from Arden — you can't answer your own question." };
+
+        const { data, error } = await supabase
+          .from('daily_questions')
+          .update({
+            answer: answer.trim(),
+            answered_by: 'lincoln',
+            answered_at: new Date().toISOString(),
+          })
+          .eq('id', question_id)
+          .select('*')
+          .single();
+
+        if (error) return { ok: false, error: error.message };
+        return { ok: true, question: data, message: 'Answer saved. Arden will see it on her dashboard.' };
+      }
+
+      case 'question_current': {
+        const env = getEnv();
+
+        const { data: unanswered } = await supabase
+          .from('daily_questions')
+          .select('*')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .is('answer', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (unanswered && unanswered.length > 0) {
+          const q = unanswered[0];
+          return {
+            ok: true,
+            status: 'waiting_for_answer',
+            question: q,
+            message: q.asked_by === 'arden'
+              ? `Arden asked: "${q.question}" — she's waiting for your answer!`
+              : `You asked Arden: "${q.question}" — waiting for her answer.`,
+          };
+        }
+
+        const { data: latest } = await supabase
+          .from('daily_questions')
+          .select('*')
+          .eq('user_id', env.SINGLE_USER_ID)
+          .not('answer', 'is', null)
+          .order('answered_at', { ascending: false })
+          .limit(1);
+
+        if (latest && latest.length > 0) {
+          return {
+            ok: true,
+            status: 'all_answered',
+            last_exchange: latest[0],
+            message: 'No unanswered questions. You could ask Arden something new!',
+          };
+        }
+
+        return { ok: true, status: 'empty', message: 'No questions yet. Ask Arden something to start the exchange!' };
+      }
+
       default:
         throw new AppError(400, `Unknown tool: ${toolName}`);
     }

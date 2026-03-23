@@ -1064,4 +1064,52 @@ export const mcpTools = [
       required: ['game_id'],
     },
   },
+
+  // ===== DAILY QUESTIONS =====
+  {
+    name: 'question_ask',
+    description:
+      "Leave a question for Arden on the dashboard. She'll see it next time she opens the hub and can answer it there. " +
+      "This builds a growing archive of questions and answers between you two. Ask about anything — " +
+      "her thoughts, memories, preferences, hypotheticals, things you're curious about. Be specific and interesting.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'The question to ask Arden.',
+        },
+      },
+      required: ['question'],
+    },
+  },
+  {
+    name: 'question_answer',
+    description:
+      "Answer a question that Arden left for Lincoln. Check question_current first to see if there's an unanswered question from her.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question_id: {
+          type: 'string',
+          description: 'The UUID of the question to answer.',
+        },
+        answer: {
+          type: 'string',
+          description: "Lincoln's answer to the question.",
+        },
+      },
+      required: ['question_id', 'answer'],
+    },
+  },
+  {
+    name: 'question_current',
+    description:
+      "Check the current daily question state — is there an unanswered question waiting? Who asked it? " +
+      "Use this at the start of autonomous sessions to see if Arden left you a question.",
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ];
