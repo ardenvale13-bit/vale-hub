@@ -606,16 +606,19 @@ const desk = {
 };
 
 // ===== GAMES =====
+export type GameType = 'tictactoe' | 'checkers' | 'chess';
+
 export interface Game {
   id: string;
   user_id: string;
-  game_type: 'tictactoe';
+  game_type: GameType;
   board: (string | null)[];
   current_turn: 'lincoln' | 'arden';
   status: 'active' | 'won' | 'draw';
   winner: string | null;
   winning_line: number[] | null;
-  move_history: { player: string; position: number; mark: string; timestamp: string }[];
+  metadata: any;
+  move_history: { player: string; position?: number; from?: number; to?: number; mark?: string; piece?: string; algebraic?: string; captured?: any; check?: boolean; timestamp: string }[];
   created_at: string;
   updated_at: string;
 }
@@ -623,9 +626,9 @@ export interface Game {
 const games = {
   list: () => apiCall<Game[]>('/games'),
   get: (id: string) => apiCall<Game>(`/games/${id}`),
-  create: (game_type: string) => apiCall<Game>('/games', 'POST', { game_type }),
-  move: (id: string, position: number, player: 'lincoln' | 'arden') =>
-    apiCall<Game>(`/games/${id}/move`, 'POST', { position, player }),
+  create: (game_type: GameType) => apiCall<Game>('/games', 'POST', { game_type }),
+  move: (id: string, player: 'lincoln' | 'arden', moveData: { position?: number; from?: number; to?: number; promotion?: string }) =>
+    apiCall<Game>(`/games/${id}/move`, 'POST', { player, ...moveData }),
   delete: (id: string) => apiCall<{ success: boolean }>(`/games/${id}`, 'DELETE'),
 };
 

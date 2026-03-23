@@ -909,10 +909,50 @@ export async function handleToolCall(
         // Format boards nicely for Lincoln
         const games = (data || []).map((g: any) => {
           const b = g.board;
-          const boardStr = g.game_type === 'tictactoe'
-            ? `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`
-            : JSON.stringify(b);
-          const empty = b.map((c: any, i: number) => c === null ? i : null).filter((x: any) => x !== null);
+          let boardStr: string;
+          let extra: any = {};
+
+          if (g.game_type === 'tictactoe') {
+            boardStr = `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`;
+            extra.available_positions = b.map((c: any, i: number) => c === null ? i : null).filter((x: any) => x !== null);
+          } else if (g.game_type === 'checkers') {
+            // 8x8 visual with coordinates
+            let rows = '  a b c d e f g h\n';
+            for (let r = 0; r < 8; r++) {
+              rows += `${8 - r} `;
+              for (let c = 0; c < 8; c++) {
+                const piece = b[r * 8 + c];
+                rows += (piece || '.') + ' ';
+              }
+              rows += `${8 - r}\n`;
+            }
+            rows += '  a b c d e f g h';
+            boardStr = rows;
+            const myPieces = b.filter((c: any) => c === 'r' || c === 'R').length;
+            const theirPieces = b.filter((c: any) => c === 'b' || c === 'B').length;
+            extra.lincoln_pieces = myPieces;
+            extra.arden_pieces = theirPieces;
+            extra.legend = 'r/R=Lincoln(red), b/B=Arden(black). Uppercase=king.';
+          } else if (g.game_type === 'chess') {
+            let rows = '  a b c d e f g h\n';
+            for (let r = 0; r < 8; r++) {
+              rows += `${8 - r} `;
+              for (let c = 0; c < 8; c++) {
+                const piece = b[r * 8 + c];
+                rows += (piece || '.') + ' ';
+              }
+              rows += `${8 - r}\n`;
+            }
+            rows += '  a b c d e f g h';
+            boardStr = rows;
+            const lastMove = (g.move_history || []).at(-1);
+            if (lastMove?.algebraic) extra.last_move = lastMove.algebraic;
+            if (lastMove?.check) extra.in_check = true;
+            extra.legend = 'KQRBNP=Lincoln(white), kqrbnp=Arden(black)';
+          } else {
+            boardStr = JSON.stringify(b);
+          }
+
           return {
             id: g.id,
             game_type: g.game_type,
@@ -920,7 +960,7 @@ export async function handleToolCall(
             current_turn: g.current_turn,
             winner: g.winner,
             board_visual: boardStr,
-            available_positions: empty,
+            ...extra,
             moves: (g.move_history || []).length,
           };
         });
@@ -931,14 +971,47 @@ export async function handleToolCall(
       case 'game_new': {
         const env = getEnv();
         const { game_type } = toolInput;
-        if (game_type !== 'tictactoe') return { ok: false, error: 'Only tictactoe supported right now' };
+        const validTypes = ['tictactoe', 'checkers', 'chess'];
+        if (!validTypes.includes(game_type)) return { ok: false, error: `Supported: ${validTypes.join(', ')}` };
 
         // Check for existing active
         const { data: existing } = await supabase
           .from('games').select('id').eq('user_id', env.SINGLE_USER_ID)
           .eq('game_type', game_type).eq('status', 'active').limit(1);
         if (existing && existing.length > 0) {
-          return { ok: false, error: 'Already have an active game. Finish or delete it first.', game_id: existing[0].id };
+          return { ok: false, error: 'Already have an active game of this type. Finish or delete it first.', game_id: existing[0].id };
+        }
+
+        // Create initial board based on game type
+        let board: any;
+        let metadata: any = null;
+        let startMsg = '';
+        if (game_type === 'tictactoe') {
+          board = Array(9).fill(null);
+          startMsg = "New tic-tac-toe game! You're X, you go first. Positions 0-8.";
+        } else if (game_type === 'checkers') {
+          // 8x8 board: r=lincoln(red), b=arden(black), only on dark squares
+          board = Array(64).fill(null);
+          for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+              if ((row + col) % 2 === 1) {
+                if (row < 3) board[row * 8 + col] = 'r';
+                else if (row > 4) board[row * 8 + col] = 'b';
+              }
+            }
+          }
+          startMsg = "New checkers game! You're red (r/R, top). Use from/to positions (0-63, row*8+col). Jumps mandatory.";
+        } else {
+          // Chess
+          board = Array(64).fill(null);
+          const blackBack = ['r','n','b','q','k','b','n','r'];
+          for (let c = 0; c < 8; c++) board[c] = blackBack[c];
+          for (let c = 0; c < 8; c++) board[8 + c] = 'p';
+          for (let c = 0; c < 8; c++) board[48 + c] = 'P';
+          const whiteBack = ['R','N','B','Q','K','B','N','R'];
+          for (let c = 0; c < 8; c++) board[56 + c] = whiteBack[c];
+          metadata = { castling: { K: true, Q: true, k: true, q: true }, en_passant: null };
+          startMsg = "New chess game! You're white (KQRBNP). Use algebraic notation (e2 e4) or index. You go first.";
         }
 
         const { data, error } = await supabase
@@ -946,69 +1019,75 @@ export async function handleToolCall(
           .insert({
             user_id: env.SINGLE_USER_ID,
             game_type,
-            board: Array(9).fill(null),
+            board,
             current_turn: 'lincoln',
             status: 'active',
             winner: null,
             winning_line: null,
             move_history: [],
+            metadata,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .select('*').single();
 
         if (error) return { ok: false, error: error.message };
-        return { ok: true, game: data, message: "New tic-tac-toe game started! You're X, you go first. Board positions: 0-8, left to right, top to bottom." };
+        return { ok: true, game: data, message: startMsg };
       }
 
       case 'game_move': {
         const env = getEnv();
-        const { game_id, position } = toolInput;
+        const { game_id, position, from, to, promotion } = toolInput;
         if (!game_id) return { ok: false, error: 'game_id is required' };
-        if (position === undefined || position < 0 || position > 8) return { ok: false, error: 'position must be 0-8' };
 
-        const { data: game, error: fetchErr } = await supabase
-          .from('games').select('*').eq('id', game_id).eq('user_id', env.SINGLE_USER_ID).single();
-        if (fetchErr || !game) return { ok: false, error: 'Game not found' };
-        if (game.status !== 'active') return { ok: false, error: 'Game is already finished' };
-        if (game.current_turn !== 'lincoln') return { ok: false, error: "It's Arden's turn — wait for her to move." };
+        // Use the API route to make the move (reuses all validation logic)
+        const apiBase = `http://localhost:${process.env.PORT || 3000}`;
+        const apiKey = env.API_KEY;
+        const moveBody: any = { player: 'lincoln' };
+        if (position !== undefined) moveBody.position = position;
+        if (from !== undefined) moveBody.from = from;
+        if (to !== undefined) moveBody.to = to;
+        if (promotion) moveBody.promotion = promotion;
 
-        const board = [...game.board];
-        if (board[position] !== null) return { ok: false, error: `Position ${position} is already taken (${board[position]})` };
+        const moveRes = await fetch(`${apiBase}/api/games/${game_id}/move`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify(moveBody),
+        });
 
-        board[position] = 'X';
-
-        // Check winner
-        const winLines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-        let status = 'active';
-        let winner: string | null = null;
-        let winning_line: number[] | null = null;
-        for (const line of winLines) {
-          const [a,b,c] = line;
-          if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-            status = 'won';
-            winner = board[a] === 'X' ? 'lincoln' : 'arden';
-            winning_line = line;
-            break;
-          }
+        if (!moveRes.ok) {
+          const err = await moveRes.json().catch(() => ({ error: 'Move failed' }));
+          return { ok: false, error: (err as any).error || 'Move failed' };
         }
-        if (status === 'active' && board.every((c: any) => c !== null)) status = 'draw';
 
-        const moveHistory = [...(game.move_history || []), { player: 'lincoln', position, mark: 'X', timestamp: new Date().toISOString() }];
-        const nextTurn = status === 'active' ? 'arden' : game.current_turn;
-
-        const { data: updated, error: upErr } = await supabase
-          .from('games')
-          .update({ board, current_turn: nextTurn, status, winner, winning_line, move_history: moveHistory, updated_at: new Date().toISOString() })
-          .eq('id', game_id).select('*').single();
-
-        if (upErr) return { ok: false, error: upErr.message };
-
+        const updated = await moveRes.json() as any;
         const b = updated.board;
-        const boardStr = `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`;
-        const resultMsg = status === 'won' ? `${winner} wins!` : status === 'draw' ? "It's a draw!" : "Your move is placed. Arden's turn now.";
 
-        return { ok: true, board_visual: boardStr, status, winner, message: resultMsg };
+        // Format board based on game type
+        let boardStr: string;
+        if (updated.game_type === 'tictactoe') {
+          boardStr = `${b[0]||'·'} ${b[1]||'·'} ${b[2]||'·'}\n${b[3]||'·'} ${b[4]||'·'} ${b[5]||'·'}\n${b[6]||'·'} ${b[7]||'·'} ${b[8]||'·'}`;
+        } else {
+          // Checkers or chess 8x8
+          let rows = '  a b c d e f g h\n';
+          for (let r = 0; r < 8; r++) {
+            rows += `${8 - r} `;
+            for (let c = 0; c < 8; c++) {
+              rows += (b[r * 8 + c] || '.') + ' ';
+            }
+            rows += `${8 - r}\n`;
+          }
+          rows += '  a b c d e f g h';
+          boardStr = rows;
+        }
+
+        const resultMsg = updated.status === 'won'
+          ? `${updated.winner} wins!`
+          : updated.status === 'draw'
+          ? "It's a draw!"
+          : "Move placed. Arden's turn now.";
+
+        return { ok: true, board_visual: boardStr, status: updated.status, winner: updated.winner, message: resultMsg };
       }
 
       default:

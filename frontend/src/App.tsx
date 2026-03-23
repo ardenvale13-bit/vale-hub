@@ -39,6 +39,7 @@ export default function App() {
     }
   }, [location.pathname, fetchDeskCount]);
 
+  // Full nav for desktop sidebar
   const navItems = [
     { path: '/', label: 'Home', icon: Home },
     { path: '/chat', label: 'Chat', icon: MessagesSquare },
@@ -47,6 +48,19 @@ export default function App() {
     { path: '/memory', label: 'Memory', icon: Brain },
     { path: '/emotions', label: 'Emotions', icon: Heart },
     { path: '/discord', label: 'Discord', icon: MessageSquare },
+    { path: '/media', label: 'Media', icon: Mic },
+    { path: '/journal', label: 'Journal', icon: BookOpen },
+    { path: '/health', label: 'Health', icon: Activity },
+  ];
+
+  // Trimmed nav for mobile bottom bar — Discord folded into Media
+  const mobileNavItems = [
+    { path: '/', label: 'Home', icon: Home },
+    { path: '/chat', label: 'Chat', icon: MessagesSquare },
+    { path: '/desk', label: 'Desk', icon: Mailbox, badge: deskUnread },
+    { path: '/games', label: 'Games', icon: Gamepad2 },
+    { path: '/memory', label: 'Memory', icon: Brain },
+    { path: '/emotions', label: 'Emotions', icon: Heart },
     { path: '/media', label: 'Media', icon: Mic },
     { path: '/journal', label: 'Journal', icon: BookOpen },
     { path: '/health', label: 'Health', icon: Activity },
@@ -142,7 +156,7 @@ export default function App() {
 
       {/* Mobile Bottom Nav — visible only on mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-vale-surface border-t border-vale-border flex items-center justify-around py-1.5 px-0.5 z-50">
-        {navItems.map((item) => {
+        {mobileNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           const badge = (item as any).badge;

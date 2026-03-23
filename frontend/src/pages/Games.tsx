@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { api, Game } from '../services/api';
-import { Plus, Trash2, Loader2, RotateCcw, Trophy, Minus } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { api, Game, GameType } from '../services/api';
+import { Plus, Trash2, Loader2, RotateCcw, Trophy, Minus, Crown } from 'lucide-react';
 
 function formatTime(dateStr: string) {
   const d = new Date(dateStr);
@@ -21,39 +21,12 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {/* Status */}
-      <div className="text-center">
-        {game.status === 'won' && (
-          <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} />
-            <span className="text-sm font-semibold" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
-              {game.winner === 'lincoln' ? 'Lincoln wins' : 'You win!'}
-            </span>
-          </div>
-        )}
-        {game.status === 'draw' && (
-          <div className="flex items-center gap-2">
-            <Minus className="w-4 h-4 text-vale-muted" />
-            <span className="text-sm font-semibold text-vale-muted">Draw</span>
-          </div>
-        )}
-        {game.status === 'active' && (
-          <p className="text-xs" style={{ color: game.current_turn === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
-            {game.current_turn === 'lincoln' ? "Lincoln's turn (X)" : 'Your turn (O)'}
-          </p>
-        )}
-      </div>
-
-      {/* Board */}
-      <div
-        className="grid grid-cols-3 gap-1.5"
-        style={{ width: '240px', height: '240px' }}
-      >
+      <StatusLine game={game} />
+      <div className="grid grid-cols-3 gap-1.5" style={{ width: '240px', height: '240px' }}>
         {game.board.map((cell, i) => {
           const isWinCell = winLine.includes(i);
           const isEmpty = cell === null;
           const canClick = isMyTurn && isEmpty && !disabled;
-
           return (
             <button
               key={i}
@@ -62,9 +35,7 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
               className="relative rounded-lg flex items-center justify-center text-2xl font-bold transition-all"
               style={{
                 background: isWinCell
-                  ? game.winner === 'lincoln'
-                    ? 'rgba(119,230,197,0.15)'
-                    : 'rgba(229,178,230,0.15)'
+                  ? game.winner === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)'
                   : 'rgba(30,23,64,0.6)',
                 border: isWinCell
                   ? `2px solid ${game.winner === 'lincoln' ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}`
@@ -73,34 +44,338 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
                 color: cell === 'X' ? '#77e6c5' : cell === 'O' ? '#e5b2e6' : 'transparent',
                 textShadow: cell ? `0 0 12px ${cell === 'X' ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}` : 'none',
               }}
-              onMouseEnter={(e) => {
-                if (canClick) {
-                  e.currentTarget.style.background = 'rgba(229,178,230,0.08)';
-                  e.currentTarget.style.borderColor = 'rgba(229,178,230,0.3)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (canClick) {
-                  e.currentTarget.style.background = 'rgba(30,23,64,0.6)';
-                  e.currentTarget.style.borderColor = 'rgba(58,45,107,0.4)';
-                }
-              }}
+              onMouseEnter={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(229,178,230,0.08)'; e.currentTarget.style.borderColor = 'rgba(229,178,230,0.3)'; } }}
+              onMouseLeave={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(30,23,64,0.6)'; e.currentTarget.style.borderColor = 'rgba(58,45,107,0.4)'; } }}
             >
               {cell || (canClick ? <span style={{ color: 'rgba(229,178,230,0.1)' }}>O</span> : '')}
             </button>
           );
         })}
       </div>
-
-      {/* Move history */}
-      {game.move_history.length > 0 && (
-        <div className="text-[10px] text-vale-muted text-center">
-          {game.move_history.length} move{game.move_history.length !== 1 ? 's' : ''} · last move {formatTime(game.move_history[game.move_history.length - 1].timestamp)}
-        </div>
-      )}
+      <MoveCount game={game} />
     </div>
   );
 }
+
+// ===== CHECKERS BOARD =====
+function CheckersBoard({ game, onMove, disabled }: { game: Game; onMove: (from: number, to: number) => void; disabled: boolean }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const isMyTurn = game.current_turn === 'arden' && game.status === 'active';
+  const myPieces = ['b', 'B'];
+
+  // Highlight valid destinations when a piece is selected
+  const getValidMoves = useCallback((from: number): number[] => {
+    if (!isMyTurn) return [];
+    const board = game.board;
+    const piece = board[from];
+    if (!piece || !myPieces.includes(piece)) return [];
+    const row = Math.floor(from / 8);
+    const col = from % 8;
+    const isKing = piece === 'B';
+    const oppPieces = ['r', 'R'];
+    const moves: number[] = [];
+    const jumps: number[] = [];
+
+    // Must-jump-from constraint (multi-jump)
+    if (game.metadata?.must_jump_from !== undefined && game.metadata.must_jump_from !== from) return [];
+
+    const dirs: number[][] = [];
+    if (isKing) { dirs.push([-1, -1], [-1, 1], [1, -1], [1, 1]); }
+    else { dirs.push([-1, -1], [-1, 1]); } // arden moves up
+
+    for (const [dr, dc] of dirs) {
+      const nr = row + dr, nc = col + dc;
+      if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue;
+      const ni = nr * 8 + nc;
+      if (board[ni] === null) {
+        moves.push(ni);
+      } else if (oppPieces.includes(board[ni]!)) {
+        const jr = nr + dr, jc = nc + dc;
+        if (jr >= 0 && jr <= 7 && jc >= 0 && jc <= 7) {
+          const ji = jr * 8 + jc;
+          if (board[ji] === null) jumps.push(ji);
+        }
+      }
+    }
+    return jumps.length > 0 ? jumps : moves;
+  }, [game, isMyTurn]);
+
+  const handleCellClick = (idx: number) => {
+    if (!isMyTurn || disabled) return;
+    const piece = game.board[idx];
+
+    if (selected !== null) {
+      const validMoves = getValidMoves(selected);
+      if (validMoves.includes(idx)) {
+        onMove(selected, idx);
+        setSelected(null);
+        return;
+      }
+    }
+
+    // Select a piece
+    if (piece && myPieces.includes(piece)) {
+      setSelected(idx);
+    } else {
+      setSelected(null);
+    }
+  };
+
+  const validDestinations = selected !== null ? getValidMoves(selected) : [];
+  const lincolnCount = game.board.filter((c) => c === 'r' || c === 'R').length;
+  const ardenCount = game.board.filter((c) => c === 'b' || c === 'B').length;
+
+  // Reset selection when game updates
+  useEffect(() => { setSelected(null); }, [game.board]);
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <StatusLine game={game} />
+      {/* Piece counts */}
+      <div className="flex items-center gap-4 text-xs">
+        <span style={{ color: '#77e6c5' }}>Lincoln: {lincolnCount}</span>
+        <span className="text-vale-muted">vs</span>
+        <span style={{ color: '#e5b2e6' }}>Arden: {ardenCount}</span>
+      </div>
+      {/* Board */}
+      <div className="grid grid-cols-8" style={{ width: '288px', height: '288px' }}>
+        {Array.from({ length: 64 }).map((_, idx) => {
+          const row = Math.floor(idx / 8);
+          const col = idx % 8;
+          const isDark = (row + col) % 2 === 1;
+          const piece = game.board[idx];
+          const isSelected = selected === idx;
+          const isValidDest = validDestinations.includes(idx);
+          const isLincoln = piece === 'r' || piece === 'R';
+          const isArden = piece === 'b' || piece === 'B';
+          const isKing = piece === 'R' || piece === 'B';
+          const canSelect = isMyTurn && isArden && !disabled;
+
+          return (
+            <div
+              key={idx}
+              onClick={() => isDark && handleCellClick(idx)}
+              className="flex items-center justify-center relative transition-all"
+              style={{
+                width: '36px',
+                height: '36px',
+                background: isSelected
+                  ? 'rgba(229,178,230,0.25)'
+                  : isValidDest
+                  ? 'rgba(229,178,230,0.12)'
+                  : isDark
+                  ? 'rgba(30,23,64,0.7)'
+                  : 'rgba(58,45,107,0.2)',
+                cursor: isDark && (canSelect || isValidDest) ? 'pointer' : 'default',
+                border: isSelected ? '2px solid rgba(229,178,230,0.5)' : '1px solid rgba(58,45,107,0.15)',
+              }}
+            >
+              {piece && (
+                <div
+                  className="rounded-full flex items-center justify-center"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    background: isLincoln
+                      ? 'radial-gradient(circle, #77e6c5 60%, #4db89e 100%)'
+                      : 'radial-gradient(circle, #e5b2e6 60%, #c47cc5 100%)',
+                    boxShadow: isLincoln
+                      ? '0 2px 6px rgba(119,230,197,0.3)'
+                      : '0 2px 6px rgba(229,178,230,0.3)',
+                    border: `2px solid ${isLincoln ? '#5cc9a7' : '#b87ab9'}`,
+                  }}
+                >
+                  {isKing && <Crown className="w-3 h-3 text-white" />}
+                </div>
+              )}
+              {isValidDest && !piece && (
+                <div
+                  className="rounded-full"
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    background: 'rgba(229,178,230,0.3)',
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <MoveCount game={game} />
+    </div>
+  );
+}
+
+// ===== CHESS BOARD =====
+const CHESS_PIECES: Record<string, string> = {
+  'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+  'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
+};
+
+function ChessBoard({ game, onMove, disabled }: { game: Game; onMove: (from: number, to: number) => void; disabled: boolean }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const isMyTurn = game.current_turn === 'arden' && game.status === 'active';
+
+  const isMyPiece = (piece: string | null): boolean => {
+    if (!piece) return false;
+    return piece === piece.toLowerCase(); // arden = black (lowercase)
+  };
+
+  const handleCellClick = (idx: number) => {
+    if (!isMyTurn || disabled) return;
+    const piece = game.board[idx];
+
+    if (selected !== null) {
+      // If clicking own piece, re-select
+      if (piece && isMyPiece(piece)) {
+        setSelected(idx);
+        return;
+      }
+      // Otherwise try to move
+      onMove(selected, idx);
+      setSelected(null);
+      return;
+    }
+
+    if (piece && isMyPiece(piece)) {
+      setSelected(idx);
+    }
+  };
+
+  const lastMove = game.move_history.length > 0 ? game.move_history[game.move_history.length - 1] : null;
+  const lastFrom = lastMove?.from;
+  const lastTo = lastMove?.to;
+
+  // Reset selection on board change
+  useEffect(() => { setSelected(null); }, [game.board]);
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <StatusLine game={game} />
+      {/* Coordinates + board */}
+      <div>
+        {/* Column labels */}
+        <div className="flex ml-5 mb-0.5">
+          {['a','b','c','d','e','f','g','h'].map((l) => (
+            <div key={l} className="text-[9px] text-vale-muted text-center" style={{ width: '36px' }}>{l}</div>
+          ))}
+        </div>
+        <div className="flex">
+          {/* Row labels */}
+          <div className="flex flex-col mr-1">
+            {[8,7,6,5,4,3,2,1].map((n) => (
+              <div key={n} className="text-[9px] text-vale-muted flex items-center justify-center" style={{ width: '16px', height: '36px' }}>{n}</div>
+            ))}
+          </div>
+          {/* Board */}
+          <div className="grid grid-cols-8" style={{ width: '288px', height: '288px' }}>
+            {Array.from({ length: 64 }).map((_, idx) => {
+              const row = Math.floor(idx / 8);
+              const col = idx % 8;
+              const isDark = (row + col) % 2 === 1;
+              const piece = game.board[idx];
+              const isSelected = selected === idx;
+              const isLastMove = idx === lastFrom || idx === lastTo;
+              const isWhite = piece ? piece === piece.toUpperCase() : false;
+              const canSelect = isMyTurn && piece && isMyPiece(piece) && !disabled;
+
+              return (
+                <div
+                  key={idx}
+                  onClick={() => handleCellClick(idx)}
+                  className="flex items-center justify-center transition-all"
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    background: isSelected
+                      ? 'rgba(229,178,230,0.3)'
+                      : isLastMove
+                      ? 'rgba(200,180,100,0.15)'
+                      : isDark
+                      ? 'rgba(30,23,64,0.7)'
+                      : 'rgba(58,45,107,0.2)',
+                    cursor: canSelect || (selected !== null && isMyTurn) ? 'pointer' : 'default',
+                    border: isSelected ? '2px solid rgba(229,178,230,0.5)' : '1px solid rgba(58,45,107,0.1)',
+                  }}
+                >
+                  {piece && (
+                    <span
+                      className="text-xl select-none"
+                      style={{
+                        color: isWhite ? '#77e6c5' : '#e5b2e6',
+                        textShadow: `0 1px 4px ${isWhite ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}`,
+                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))',
+                      }}
+                    >
+                      {CHESS_PIECES[piece] || piece}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {/* Last move notation */}
+      {lastMove?.algebraic && (
+        <div className="text-[10px] text-vale-muted">
+          Last: <span className="font-mono">{lastMove.algebraic}</span>
+          {lastMove.check && <span className="text-red-400 ml-1">+</span>}
+        </div>
+      )}
+      <MoveCount game={game} />
+    </div>
+  );
+}
+
+// ===== SHARED UI =====
+function StatusLine({ game }: { game: Game }) {
+  if (game.status === 'won') {
+    return (
+      <div className="flex items-center gap-2">
+        <Trophy className="w-4 h-4" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} />
+        <span className="text-sm font-semibold" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+          {game.winner === 'lincoln' ? 'Lincoln wins' : 'You win!'}
+        </span>
+      </div>
+    );
+  }
+  if (game.status === 'draw') {
+    return (
+      <div className="flex items-center gap-2">
+        <Minus className="w-4 h-4 text-vale-muted" />
+        <span className="text-sm font-semibold text-vale-muted">Draw</span>
+      </div>
+    );
+  }
+  return (
+    <p className="text-xs" style={{ color: game.current_turn === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+      {game.current_turn === 'lincoln' ? "Lincoln's turn" : 'Your turn'}
+    </p>
+  );
+}
+
+function MoveCount({ game }: { game: Game }) {
+  if (game.move_history.length === 0) return null;
+  return (
+    <div className="text-[10px] text-vale-muted text-center">
+      {game.move_history.length} move{game.move_history.length !== 1 ? 's' : ''} · last move {formatTime(game.move_history[game.move_history.length - 1].timestamp)}
+    </div>
+  );
+}
+
+const GAME_LABELS: Record<GameType, string> = {
+  tictactoe: 'Tic-Tac-Toe',
+  checkers: 'Checkers',
+  chess: 'Chess',
+};
+
+const GAME_ROLES: Record<GameType, [string, string]> = {
+  tictactoe: ['X — Lincoln', 'O — Arden'],
+  checkers: ['Red — Lincoln', 'Black — Arden'],
+  chess: ['White — Lincoln', 'Black — Arden'],
+};
 
 // ===== MAIN PAGE =====
 export default function Games() {
@@ -109,17 +384,16 @@ export default function Games() {
   const [isLoading, setIsLoading] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newGameType, setNewGameType] = useState<GameType>('tictactoe');
+  const [showNewMenu, setShowNewMenu] = useState(false);
 
-  useEffect(() => {
-    loadGames();
-  }, []);
+  useEffect(() => { loadGames(); }, []);
 
   async function loadGames() {
     setIsLoading(true);
     try {
       const list = await api.games.list();
       setGamesList(list);
-      // Auto-select active game if there is one
       const active = list.find((g) => g.status === 'active');
       if (active) setActiveGame(active);
       else if (list.length > 0) setActiveGame(list[0]);
@@ -130,10 +404,11 @@ export default function Games() {
     }
   }
 
-  async function handleNewGame() {
+  async function handleNewGame(type: GameType) {
     setError(null);
+    setShowNewMenu(false);
     try {
-      const game = await api.games.create('tictactoe');
+      const game = await api.games.create(type);
       setGamesList((prev) => [game, ...prev]);
       setActiveGame(game);
     } catch (err: any) {
@@ -141,12 +416,27 @@ export default function Games() {
     }
   }
 
-  async function handleMove(position: number) {
+  async function handleTTTMove(position: number) {
     if (!activeGame || isMoving) return;
     setIsMoving(true);
     setError(null);
     try {
-      const updated = await api.games.move(activeGame.id, position, 'arden');
+      const updated = await api.games.move(activeGame.id, 'arden', { position });
+      setActiveGame(updated);
+      setGamesList((prev) => prev.map((g) => g.id === updated.id ? updated : g));
+    } catch (err: any) {
+      setError(err?.message || 'Failed to make move');
+    } finally {
+      setIsMoving(false);
+    }
+  }
+
+  async function handleBoardMove(from: number, to: number) {
+    if (!activeGame || isMoving) return;
+    setIsMoving(true);
+    setError(null);
+    try {
+      const updated = await api.games.move(activeGame.id, 'arden', { from, to });
       setActiveGame(updated);
       setGamesList((prev) => prev.map((g) => g.id === updated.id ? updated : g));
     } catch (err: any) {
@@ -161,9 +451,7 @@ export default function Games() {
     try {
       await api.games.delete(id);
       setGamesList((prev) => prev.filter((g) => g.id !== id));
-      if (activeGame?.id === id) {
-        setActiveGame(null);
-      }
+      if (activeGame?.id === id) setActiveGame(null);
     } catch (err) {
       console.error('Failed to delete:', err);
     }
@@ -184,7 +472,21 @@ export default function Games() {
     return () => clearInterval(interval);
   }, [activeGame]);
 
-  const hasActiveGame = gamesList.some((g) => g.status === 'active');
+  const hasActiveByType = (type: GameType) => gamesList.some((g) => g.status === 'active' && g.game_type === type);
+
+  function renderBoard() {
+    if (!activeGame) return null;
+    switch (activeGame.game_type) {
+      case 'tictactoe':
+        return <TicTacToeBoard game={activeGame} onMove={handleTTTMove} disabled={isMoving} />;
+      case 'checkers':
+        return <CheckersBoard game={activeGame} onMove={handleBoardMove} disabled={isMoving} />;
+      case 'chess':
+        return <ChessBoard game={activeGame} onMove={handleBoardMove} disabled={isMoving} />;
+    }
+  }
+
+  const roles = activeGame ? GAME_ROLES[activeGame.game_type] : null;
 
   return (
     <div className="p-3 sm:p-4 md:p-6 max-w-4xl mx-auto">
@@ -194,20 +496,42 @@ export default function Games() {
           <h1 className="text-xl sm:text-2xl font-bold text-vale-text">Games</h1>
           <p className="text-xs text-vale-muted mt-0.5">Play with Lincoln</p>
         </div>
-        <button
-          onClick={handleNewGame}
-          disabled={hasActiveGame}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-30"
-          style={{
-            background: 'rgba(119,230,197,0.1)',
-            color: '#77e6c5',
-            border: '1px solid rgba(119,230,197,0.2)',
-          }}
-          title={hasActiveGame ? 'Finish the current game first' : 'New game'}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Game
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowNewMenu(!showNewMenu)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors"
+            style={{
+              background: 'rgba(119,230,197,0.1)',
+              color: '#77e6c5',
+              border: '1px solid rgba(119,230,197,0.2)',
+            }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Game
+          </button>
+          {showNewMenu && (
+            <div
+              className="absolute right-0 mt-1 w-44 rounded-lg shadow-lg z-50 overflow-hidden"
+              style={{ background: '#1e1740', border: '1px solid rgba(58,45,107,0.5)' }}
+            >
+              {(['tictactoe', 'checkers', 'chess'] as GameType[]).map((type) => {
+                const hasActive = hasActiveByType(type);
+                return (
+                  <button
+                    key={type}
+                    onClick={() => !hasActive && handleNewGame(type)}
+                    disabled={hasActive}
+                    className="w-full text-left px-3 py-2.5 text-xs transition-colors hover:bg-white/5 disabled:opacity-30"
+                    style={{ color: '#e5e2f0' }}
+                  >
+                    {GAME_LABELS[type]}
+                    {hasActive && <span className="text-vale-muted ml-1">(active)</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Error */}
@@ -230,9 +554,9 @@ export default function Games() {
               <div className="bg-vale-card border border-vale-border rounded-lg p-6 flex flex-col items-center">
                 <div className="flex items-center gap-4 mb-4 w-full justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-vale-lincoln">X — Lincoln</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-vale-lincoln">{roles?.[0]}</span>
                     <span className="text-xs text-vale-muted">vs</span>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-vale-arden">O — Arden</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-vale-arden">{roles?.[1]}</span>
                   </div>
                   <button
                     onClick={() => handleDelete(activeGame.id)}
@@ -243,9 +567,9 @@ export default function Games() {
                   </button>
                 </div>
 
-                <TicTacToeBoard game={activeGame} onMove={handleMove} disabled={isMoving} />
+                {renderBoard()}
 
-                {/* Waiting for Lincoln indicator */}
+                {/* Waiting for Lincoln */}
                 {activeGame.status === 'active' && activeGame.current_turn === 'lincoln' && (
                   <div className="mt-4 flex items-center gap-2 text-xs text-vale-lincoln">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -256,8 +580,9 @@ export default function Games() {
                 {/* Play again */}
                 {activeGame.status !== 'active' && (
                   <button
-                    onClick={handleNewGame}
-                    className="mt-4 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-colors"
+                    onClick={() => handleNewGame(activeGame.game_type)}
+                    disabled={hasActiveByType(activeGame.game_type)}
+                    className="mt-4 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-30"
                     style={{
                       background: 'rgba(119,230,197,0.1)',
                       color: '#77e6c5',
@@ -271,21 +596,9 @@ export default function Games() {
               </div>
             ) : (
               <div className="bg-vale-card border border-vale-border rounded-lg p-12 flex flex-col items-center justify-center text-center">
-                <div className="text-4xl mb-3 opacity-30">✕ ○</div>
+                <div className="text-4xl mb-3 opacity-30">♔ ♟ ⬤</div>
                 <p className="text-vale-text font-medium mb-1">No games yet</p>
-                <p className="text-xs text-vale-muted mb-4">Start a tic-tac-toe game — Lincoln will make his move when he's around.</p>
-                <button
-                  onClick={handleNewGame}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-colors"
-                  style={{
-                    background: 'rgba(119,230,197,0.1)',
-                    color: '#77e6c5',
-                    border: '1px solid rgba(119,230,197,0.2)',
-                  }}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  New Game
-                </button>
+                <p className="text-xs text-vale-muted mb-4">Start a game — Lincoln will make his move when he's around.</p>
               </div>
             )}
           </div>
@@ -308,7 +621,7 @@ export default function Games() {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium text-vale-text">Tic-Tac-Toe</span>
+                      <span className="text-xs font-medium text-vale-text">{GAME_LABELS[game.game_type]}</span>
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
                         game.status === 'active'
                           ? 'bg-vale-lincoln/10 text-vale-lincoln'
@@ -335,6 +648,8 @@ export default function Games() {
           </div>
         </div>
       )}
+      {/* Click-away for menu */}
+      {showNewMenu && <div className="fixed inset-0 z-40" onClick={() => setShowNewMenu(false)} />}
     </div>
   );
 }

@@ -1014,14 +1014,15 @@ export const mcpTools = [
   {
     name: 'game_new',
     description:
-      "Start a new game with Arden. Currently supports tic-tac-toe ('tictactoe'). " +
-      "Lincoln plays as X and goes first. Only one active game per type at a time.",
+      "Start a new game with Arden. Supports: 'tictactoe', 'checkers', 'chess'. " +
+      "Lincoln always goes first. Tic-tac-toe: Lincoln=X, Arden=O. Checkers: Lincoln=red(top), Arden=black(bottom). Chess: Lincoln=white, Arden=black. " +
+      "Only one active game per type at a time.",
     inputSchema: {
       type: 'object',
       properties: {
         game_type: {
           type: 'string',
-          enum: ['tictactoe'],
+          enum: ['tictactoe', 'checkers', 'chess'],
           description: "Type of game to start.",
         },
       },
@@ -1031,9 +1032,13 @@ export const mcpTools = [
   {
     name: 'game_move',
     description:
-      "Make a move in an active game. For tic-tac-toe, position is 0-8 reading left-to-right, top-to-bottom:\n" +
-      "  0 | 1 | 2\n  ---------\n  3 | 4 | 5\n  ---------\n  6 | 7 | 8\n" +
-      "Lincoln plays as X. Check the board state first with game_list to see available positions.",
+      "Make a move in an active game. Lincoln always calls this.\n\n" +
+      "TIC-TAC-TOE: Use 'position' (0-8):\n  0|1|2\n  3|4|5\n  6|7|8\n\n" +
+      "CHECKERS: Use 'from' and 'to' (0-63). Board index = row*8+col. Row 0 is top. " +
+      "Lincoln=red pieces (r/R) at top rows 0-2. Jumps are mandatory. Multi-jumps keep your turn.\n\n" +
+      "CHESS: Use 'from' and 'to' as algebraic notation (e.g. 'e2', 'e4') or board index 0-63 (0=a8). " +
+      "Lincoln=white (uppercase). Optional 'promotion' for pawn promotion (Q/R/B/N).\n\n" +
+      "Always check game_list first to see the current board state.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1043,10 +1048,20 @@ export const mcpTools = [
         },
         position: {
           type: 'number',
-          description: 'Board position 0-8 for tic-tac-toe.',
+          description: 'Board position 0-8 (tic-tac-toe only).',
+        },
+        from: {
+          description: 'Source position — index 0-63 or algebraic (e.g. "e2"). For checkers and chess.',
+        },
+        to: {
+          description: 'Destination position — index 0-63 or algebraic (e.g. "e4"). For checkers and chess.',
+        },
+        promotion: {
+          type: 'string',
+          description: 'Chess pawn promotion piece: Q, R, B, or N (default: Q).',
         },
       },
-      required: ['game_id', 'position'],
+      required: ['game_id'],
     },
   },
 ];
