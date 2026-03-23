@@ -432,6 +432,7 @@ export async function handleToolCall(
             url: dashboardImage.url,
             caption: dashboardImage.caption || 'no caption',
             uploaded_at: dashboardImage.created_at,
+            _image_url: dashboardImage.url, // Signal to fetch and embed as viewable image
           } : null,
           recent_emotions: recentEmotions,
           notes_between_stars: (notes || []).map((n: any) => ({

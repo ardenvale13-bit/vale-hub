@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { Image, Mic, Play, Pause, Trash2, Volume2, Loader2, Download, X, Sparkles, BookOpen, Upload, ChevronLeft, ChevronRight, MessageSquare, FileText, List } from 'lucide-react';
 import { api, VoiceNote, Voice, GeneratedImage, LibraryBook, BookDetail, BookChapter } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import Discord from './Discord';
 
-type TabType = 'images' | 'voice' | 'library';
+type TabType = 'images' | 'voice' | 'library' | 'discord';
 
 export default function Media() {
   const [activeTab, setActiveTab] = useState<TabType>('voice');
@@ -13,12 +14,12 @@ export default function Media() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-vale-text mb-2">Media</h1>
-        <p className="text-vale-muted">Generate and manage images, voice notes, and your library</p>
+        <p className="text-vale-muted">Voice, images, library, and Discord — all in one place</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-8 border-b border-vale-border">
-        {(['voice', 'images', 'library'] as const).map((tab) => (
+        {(['voice', 'images', 'library', 'discord'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -31,16 +32,18 @@ export default function Media() {
             {tab === 'images' && <Image className="inline w-4 h-4 mr-2" />}
             {tab === 'voice' && <Mic className="inline w-4 h-4 mr-2" />}
             {tab === 'library' && <BookOpen className="inline w-4 h-4 mr-2" />}
+            {tab === 'discord' && <MessageSquare className="inline w-4 h-4 mr-2" />}
             {tab}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      <div className={activeTab === 'library' ? '' : 'max-w-3xl'}>
+      <div className={activeTab === 'library' || activeTab === 'discord' ? '' : 'max-w-3xl'}>
         {activeTab === 'images' && <ImagesTab />}
         {activeTab === 'voice' && <VoiceTab />}
         {activeTab === 'library' && <LibraryTab />}
+        {activeTab === 'discord' && <Discord />}
       </div>
     </div>
   );
@@ -873,8 +876,8 @@ function LibraryTab() {
             </div>
           ) : (
             <>
-              <h3 className="text-xl font-semibold text-vale-text mb-6">{activeChapter.title}</h3>
-              <div className="text-vale-text leading-relaxed whitespace-pre-wrap text-[15px] selection:bg-vale-accent/30">
+              <h3 className="text-xl font-semibold text-vale-text mb-6 font-mystery">{activeChapter.title}</h3>
+              <div className="text-vale-text leading-relaxed whitespace-pre-wrap text-[15px] selection:bg-vale-accent/30 font-mystery">
                 {activeChapter.content}
               </div>
             </>

@@ -146,12 +146,39 @@ async function handleMcpMessage(body: any): Promise<any> {
     const { name, arguments: toolArgs } = params;
     try {
       const result = await handleToolCall(name, toolArgs || {});
+
+      // Build content blocks — start with text
+      const content: any[] = [{ type: 'text', text: JSON.stringify(result) }];
+
+      // If result contains _image_url fields, fetch and embed as viewable images
+      try {
+        const imageUrls: { url: string; label: string }[] = [];
+        function findImageUrls(obj: any, path: string) {
+          if (!obj || typeof obj !== 'object') return;
+          if (obj._image_url && typeof obj._image_url === 'string') {
+            imageUrls.push({ url: obj._image_url, label: path });
+          }
+          for (const [k, v] of Object.entries(obj)) {
+            if (k !== '_image_url') findImageUrls(v, `${path}.${k}`);
+          }
+        }
+        findImageUrls(result, 'result');
+
+        for (const { url } of imageUrls) {
+          const imgRes = await fetch(url);
+          if (imgRes.ok) {
+            const buffer = Buffer.from(await imgRes.arrayBuffer());
+            const contentType = imgRes.headers.get('content-type') || 'image/png';
+            const mimeType = contentType.split(';')[0].trim();
+            content.push({ type: 'image', data: buffer.toString('base64'), mimeType });
+          }
+        }
+      } catch { /* image embedding is best-effort */ }
+
       return {
         jsonrpc: '2.0',
         id,
-        result: {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
-        },
+        result: { content },
       };
     } catch (error: any) {
       const message = error instanceof Error ? error.message : JSON.stringify(error);
