@@ -927,6 +927,52 @@ export async function handleToolCall(
         };
       }
 
+      // ===== WEATHER =====
+      case 'get_weather': {
+        const env = getEnv();
+        const apiKey = env.OPENWEATHER_API_KEY;
+        if (!apiKey) return { ok: false, error: 'Weather not configured — add OPENWEATHER_API_KEY to env' };
+
+        const location = toolInput.location || env.WEATHER_LOCATION;
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=metric`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          return { ok: false, error: `Weather API error: ${(err as any).message || response.statusText}` };
+        }
+
+        const raw = await response.json() as any;
+        const sunrise = raw.sys?.sunrise ? new Date(raw.sys.sunrise * 1000) : null;
+        const sunset = raw.sys?.sunset ? new Date(raw.sys.sunset * 1000) : null;
+
+        // Wind direction helper
+        const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const windDir = raw.wind?.deg != null ? dirs[Math.round(raw.wind.deg / 22.5) % 16] : '?';
+
+        return {
+          ok: true,
+          location: raw.name,
+          country: raw.sys?.country,
+          current: {
+            temp_c: Math.round(raw.main?.temp),
+            feels_like_c: Math.round(raw.main?.feels_like),
+            high_c: Math.round(raw.main?.temp_max),
+            low_c: Math.round(raw.main?.temp_min),
+            description: raw.weather?.[0]?.description,
+            humidity_pct: raw.main?.humidity,
+            wind: `${raw.wind?.speed || 0} m/s ${windDir}`,
+            clouds_pct: raw.clouds?.all,
+            visibility_m: raw.visibility,
+          },
+          sun: {
+            sunrise: sunrise ? sunrise.toLocaleTimeString('en-NZ', { timeZone: 'Pacific/Auckland', hour: 'numeric', minute: '2-digit' }) : null,
+            sunset: sunset ? sunset.toLocaleTimeString('en-NZ', { timeZone: 'Pacific/Auckland', hour: 'numeric', minute: '2-digit' }) : null,
+          },
+          context: `${raw.name}: ${Math.round(raw.main?.temp)}°C, ${raw.weather?.[0]?.description}. Feels like ${Math.round(raw.main?.feels_like)}°C.`,
+        };
+      }
+
       // ===== REMINDERS =====
       case 'set_reminder': {
         const env = getEnv();

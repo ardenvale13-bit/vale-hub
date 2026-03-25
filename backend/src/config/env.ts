@@ -26,6 +26,8 @@ const envSchema = z.object({
   SPOTIFY_REDIRECT_URI: z.string().optional(),
   FRONTEND_URL: z.string().optional(), // e.g. https://vale-hub.vercel.app
   CORS_ORIGIN: z.string().default('http://localhost:5173'), // Comma-separated for multiple origins
+  OPENWEATHER_API_KEY: z.string().optional(),
+  WEATHER_LOCATION: z.string().default('Christchurch,NZ'), // Default location for weather
 });
 
 export type Environment = z.infer<typeof envSchema>;

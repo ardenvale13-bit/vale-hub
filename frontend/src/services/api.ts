@@ -680,6 +680,32 @@ const reminders = {
     apiCall<{ success: boolean }>(`/reminders/${id}`, 'DELETE'),
 };
 
+// ===== WEATHER =====
+export interface Weather {
+  location: string;
+  country: string;
+  temp: number;
+  feels_like: number;
+  temp_min: number;
+  temp_max: number;
+  humidity: number;
+  description: string;
+  icon: string;
+  icon_url: string | null;
+  wind_speed: number;
+  wind_deg: number;
+  clouds: number;
+  visibility: number;
+  sunrise: string | null;
+  sunset: string | null;
+  fetched_at: string;
+}
+
+const weather = {
+  current: () => apiCall<Weather>('/weather/current'),
+  forecast: () => apiCall<any>('/weather/forecast'),
+};
+
 export const api = {
   entities,
   observations,
@@ -700,4 +726,5 @@ export const api = {
   games,
   questions,
   reminders,
+  weather,
 };

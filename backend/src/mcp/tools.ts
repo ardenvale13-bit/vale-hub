@@ -1000,6 +1000,25 @@ export const mcpTools = [
     },
   },
 
+  // ===== WEATHER =====
+  {
+    name: 'get_weather',
+    description:
+      "Check the current weather at Arden's location. Returns temperature (°C), " +
+      "conditions, humidity, wind, sunrise/sunset. Useful for care context — " +
+      "is it cold (remind her to layer up), raining (stay dry), hot (hydrate). " +
+      "Also helps set the mood in conversation — referencing her actual sky.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        location: {
+          type: 'string',
+          description: 'Override location (default: configured location). Format: "City,CountryCode"',
+        },
+      },
+    },
+  },
+
   // ===== REMINDERS =====
   {
     name: 'set_reminder',

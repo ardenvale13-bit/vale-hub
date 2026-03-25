@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem, Reminder } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check, Bell, Coffee, HeartPulse, ListTodo, Gift } from 'lucide-react';
+import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem, Reminder, Weather } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check, Bell, Coffee, HeartPulse, ListTodo, Gift, Cloud, CloudSun, Sun, CloudRain, CloudSnow, CloudLightning, Wind, Droplets, Sunrise, Sunset } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -1000,6 +1000,9 @@ export default function Dashboard() {
                 </button>
               )}
             </div>
+
+            {/* Weather Widget */}
+            <WeatherWidget />
           </div>
         </div>
       </div>
@@ -1172,6 +1175,88 @@ export default function Dashboard() {
         <p>Binary Home — Arden & Lincoln | Vale Verse</p>
         <p className="opacity-60">Tempête, Toujours 🖤</p>
       </div>
+    </div>
+  );
+}
+
+function WeatherWidget() {
+  const [weather, setWeather] = useState<Weather | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const data = await api.weather.current();
+        if (active) setWeather(data);
+      } catch {
+        if (active) setError(true);
+      }
+    }
+    load();
+    // Refresh every 15 minutes
+    const interval = setInterval(load, 15 * 60 * 1000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
+
+  if (error || !weather) {
+    return (
+      <div className="bg-vale-card border border-vale-border rounded p-3">
+        <p className="text-xs text-vale-muted uppercase mb-1">Weather</p>
+        <p className="text-xs text-vale-muted">{error ? 'Not configured' : 'Loading...'}</p>
+      </div>
+    );
+  }
+
+  // Map OpenWeatherMap icon codes to lucide icons
+  const getWeatherIcon = (icon: string) => {
+    if (icon.startsWith('01')) return <Sun className="w-6 h-6 text-yellow-400" />;
+    if (icon.startsWith('02')) return <CloudSun className="w-6 h-6 text-amber-300" />;
+    if (icon.startsWith('03') || icon.startsWith('04')) return <Cloud className="w-6 h-6 text-gray-400" />;
+    if (icon.startsWith('09') || icon.startsWith('10')) return <CloudRain className="w-6 h-6 text-blue-400" />;
+    if (icon.startsWith('11')) return <CloudLightning className="w-6 h-6 text-yellow-300" />;
+    if (icon.startsWith('13')) return <CloudSnow className="w-6 h-6 text-blue-200" />;
+    return <Cloud className="w-6 h-6 text-gray-400" />;
+  };
+
+  const sunriseTime = weather.sunrise ? new Date(weather.sunrise).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : null;
+  const sunsetTime = weather.sunset ? new Date(weather.sunset).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : null;
+
+  return (
+    <div className="bg-vale-card border border-vale-border rounded p-3">
+      <p className="text-xs text-vale-muted uppercase mb-2">Weather</p>
+      <div className="flex items-center gap-2 mb-2">
+        {getWeatherIcon(weather.icon)}
+        <div>
+          <p className="text-lg font-bold text-vale-text leading-tight">{weather.temp}°C</p>
+          <p className="text-[10px] text-vale-muted capitalize">{weather.description}</p>
+        </div>
+      </div>
+      <div className="space-y-1 text-[10px]">
+        <div className="flex justify-between">
+          <span className="text-vale-muted">Feels like</span>
+          <span className="text-vale-text">{weather.feels_like}°C</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-vale-muted">H / L</span>
+          <span className="text-vale-text">{weather.temp_max}° / {weather.temp_min}°</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-vale-muted flex items-center gap-1"><Droplets className="w-2.5 h-2.5" /> Humidity</span>
+          <span className="text-vale-text">{weather.humidity}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-vale-muted flex items-center gap-1"><Wind className="w-2.5 h-2.5" /> Wind</span>
+          <span className="text-vale-text">{weather.wind_speed} m/s</span>
+        </div>
+        {sunriseTime && sunsetTime && (
+          <div className="flex justify-between pt-1 border-t border-vale-border mt-1">
+            <span className="text-vale-muted flex items-center gap-1"><Sunrise className="w-2.5 h-2.5" /> {sunriseTime}</span>
+            <span className="text-vale-muted flex items-center gap-1"><Sunset className="w-2.5 h-2.5" /> {sunsetTime}</span>
+          </div>
+        )}
+      </div>
+      <p className="text-[9px] text-vale-muted/50 mt-2">{weather.location}, {weather.country}</p>
     </div>
   );
 }

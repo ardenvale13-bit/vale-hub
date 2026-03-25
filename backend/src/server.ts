@@ -28,6 +28,7 @@ import deskRouter from './routes/desk.js';
 import gamesRouter from './routes/games.js';
 import questionsRouter from './routes/questions.js';
 import remindersRouter from './routes/reminders.js';
+import weatherRouter from './routes/weather.js';
 import { mcpTools } from './mcp/tools.js';
 import { handleToolCall } from './mcp/handlers.js';
 import { startReminderScheduler } from './services/reminder.scheduler.js';
@@ -253,6 +254,7 @@ app.use('/api/desk', apiKeyAuth, deskRouter);
 app.use('/api/games', apiKeyAuth, gamesRouter);
 app.use('/api/questions', apiKeyAuth, questionsRouter);
 app.use('/api/reminders', apiKeyAuth, remindersRouter);
+app.use('/api/weather', apiKeyAuth, weatherRouter);
 // Spotify: /auth and /callback are public (no API key — browser OAuth redirects)
 // All other spotify endpoints require apiKeyAuth
 app.use('/api/spotify', (req, res, next) => {
