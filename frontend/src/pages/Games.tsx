@@ -27,12 +27,14 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
           const isWinCell = winLine.includes(i);
           const isEmpty = cell === null;
           const canClick = isMyTurn && isEmpty && !disabled;
+          const isLincoln = cell === 'X';
+          const isArden = cell === 'O';
           return (
             <button
               key={i}
               onClick={() => canClick && onMove(i)}
               disabled={!canClick}
-              className="relative rounded-lg flex items-center justify-center text-2xl font-bold transition-all"
+              className="relative rounded-lg flex items-center justify-center transition-all"
               style={{
                 background: isWinCell
                   ? game.winner === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)'
@@ -41,13 +43,19 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
                   ? `2px solid ${game.winner === 'lincoln' ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}`
                   : '1px solid rgba(58,45,107,0.4)',
                 cursor: canClick ? 'pointer' : 'default',
-                color: cell === 'X' ? '#8a8a9a' : cell === 'O' ? '#e5b2e6' : 'transparent',
-                textShadow: cell ? `0 0 12px ${cell === 'X' ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}` : 'none',
               }}
               onMouseEnter={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(229,178,230,0.08)'; e.currentTarget.style.borderColor = 'rgba(229,178,230,0.3)'; } }}
               onMouseLeave={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(30,23,64,0.6)'; e.currentTarget.style.borderColor = 'rgba(58,45,107,0.4)'; } }}
             >
-              {cell || (canClick ? <span style={{ color: 'rgba(229,178,230,0.1)' }}>O</span> : '')}
+              {isLincoln && (
+                <img src="/pieces/tictactoe/lincoln.png" alt="X" className="w-14 h-14 object-contain select-none pointer-events-none" draggable={false} />
+              )}
+              {isArden && (
+                <img src="/pieces/tictactoe/arden.png" alt="O" className="w-14 h-14 object-contain select-none pointer-events-none" draggable={false} />
+              )}
+              {isEmpty && canClick && (
+                <img src="/pieces/tictactoe/arden.png" alt="O" className="w-10 h-10 object-contain opacity-10 select-none pointer-events-none" draggable={false} />
+              )}
             </button>
           );
         })}
@@ -208,7 +216,8 @@ function CheckersBoard({ game, onMove, disabled }: { game: Game; onMove: (from: 
 }
 
 // ===== CHESS BOARD =====
-// Custom piece images — Lincoln (White/uppercase), Arden (Black/lowercase)
+// Custom piece images — Lincoln plays dark pieces, Arden plays light/pink pieces
+// Backend: uppercase = lincoln, lowercase = arden (game logic unchanged)
 const CHESS_PIECE_IMAGES: Record<string, string> = {
   'K': '/pieces/lincoln/king.png',
   'Q': '/pieces/lincoln/queen.png',
@@ -326,7 +335,6 @@ function ChessBoard({ game, onMove, disabled }: { game: Game; onMove: (from: num
                           width: '30px',
                           height: '30px',
                           objectFit: 'contain',
-                          filter: `drop-shadow(0 1px 3px ${isWhite ? 'rgba(138,138,154,0.5)' : 'rgba(229,178,230,0.5)'})`,
                         }}
                         draggable={false}
                       />
@@ -404,9 +412,9 @@ const GAME_LABELS: Record<GameType, string> = {
 };
 
 const GAME_ROLES: Record<GameType, [string, string]> = {
-  tictactoe: ['X — Lincoln', 'O — Arden'],
+  tictactoe: ['Lincoln', 'Arden'],
   checkers: ['Red — Lincoln', 'Black — Arden'],
-  chess: ['White — Lincoln', 'Black — Arden'],
+  chess: ['Black — Lincoln', 'White — Arden'],
 };
 
 // ===== MAIN PAGE =====
