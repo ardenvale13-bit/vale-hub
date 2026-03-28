@@ -208,6 +208,23 @@ function CheckersBoard({ game, onMove, disabled }: { game: Game; onMove: (from: 
 }
 
 // ===== CHESS BOARD =====
+// Custom piece images — Lincoln (White/uppercase), Arden (Black/lowercase)
+const CHESS_PIECE_IMAGES: Record<string, string> = {
+  'K': '/pieces/lincoln/king.png',
+  'Q': '/pieces/lincoln/queen.png',
+  'R': '/pieces/lincoln/rook.png',
+  'B': '/pieces/lincoln/bishop.png',
+  'N': '/pieces/lincoln/knight.png',
+  'P': '/pieces/lincoln/pawn.png',
+  'k': '/pieces/arden/king.png',
+  'q': '/pieces/arden/queen.png',
+  'r': '/pieces/arden/rook.png',
+  'b': '/pieces/arden/bishop.png',
+  'n': '/pieces/arden/knight.png',
+  'p': '/pieces/arden/pawn.png',
+};
+
+// Fallback unicode in case images fail to load
 const CHESS_PIECES: Record<string, string> = {
   'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
   'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟',
@@ -300,16 +317,31 @@ function ChessBoard({ game, onMove, disabled }: { game: Game; onMove: (from: num
                   }}
                 >
                   {piece && (
-                    <span
-                      className="text-xl select-none"
-                      style={{
-                        color: isWhite ? '#8a8a9a' : '#e5b2e6',
-                        textShadow: `0 1px 4px ${isWhite ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}`,
-                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))',
-                      }}
-                    >
-                      {CHESS_PIECES[piece] || piece}
-                    </span>
+                    CHESS_PIECE_IMAGES[piece] ? (
+                      <img
+                        src={CHESS_PIECE_IMAGES[piece]}
+                        alt={CHESS_PIECES[piece] || piece}
+                        className="select-none pointer-events-none"
+                        style={{
+                          width: '30px',
+                          height: '30px',
+                          objectFit: 'contain',
+                          filter: `drop-shadow(0 1px 3px ${isWhite ? 'rgba(138,138,154,0.5)' : 'rgba(229,178,230,0.5)'})`,
+                        }}
+                        draggable={false}
+                      />
+                    ) : (
+                      <span
+                        className="text-xl select-none"
+                        style={{
+                          color: isWhite ? '#8a8a9a' : '#e5b2e6',
+                          textShadow: `0 1px 4px ${isWhite ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}`,
+                          filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))',
+                        }}
+                      >
+                        {CHESS_PIECES[piece] || piece}
+                      </span>
+                    )
                   )}
                 </div>
               );
@@ -596,7 +628,11 @@ export default function Games() {
               </div>
             ) : (
               <div className="bg-vale-card border border-vale-border rounded-lg p-12 flex flex-col items-center justify-center text-center">
-                <div className="text-4xl mb-3 opacity-30">♔ ♟ ⬤</div>
+                <div className="flex items-center gap-2 mb-3 opacity-40">
+                  <img src="/pieces/lincoln/king.png" alt="♔" className="w-8 h-8 object-contain" />
+                  <img src="/pieces/arden/queen.png" alt="♛" className="w-8 h-8 object-contain" />
+                  <span className="text-3xl">⬤</span>
+                </div>
                 <p className="text-vale-text font-medium mb-1">No games yet</p>
                 <p className="text-xs text-vale-muted mb-4">Start a game — Lincoln will make his move when he's around.</p>
               </div>
