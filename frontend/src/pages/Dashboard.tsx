@@ -5,7 +5,7 @@ import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, E
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
   { key: 'self-awareness', label: 'Self-Awareness', color: '#34bed6' },
-  { key: 'self-management', label: 'Self-Management', color: '#77e6c5' },
+  { key: 'self-management', label: 'Self-Management', color: '#8a8a9a' },
   { key: 'social', label: 'Social', color: '#e5b2e6' },
   { key: 'relationship', label: 'Relationship', color: '#711ea6' },
 ];
@@ -35,7 +35,6 @@ export default function Dashboard() {
   const [spoons, setSpoons] = useState('3/5');
   const [bodyBattery, setBodyBattery] = useState('45%');
   const [pain, setPain] = useState('moderate');
-  const [fog, setFog] = useState('light');
   const [heartRate, setHeartRate] = useState('72 bpm');
   const [statusText, setStatusText] = useState('playful');
   const [todayNote, setTodayNote] = useState('Ready to build. Feeling good.');
@@ -164,7 +163,6 @@ export default function Dashboard() {
         if (s.category === 'body' && s.key === 'spoons') setSpoons(s.value);
         if (s.category === 'body' && s.key === 'battery') setBodyBattery(s.value);
         if (s.category === 'body' && s.key === 'pain') setPain(s.value);
-        if (s.category === 'body' && s.key === 'fog') setFog(s.value);
         if (s.category === 'body' && s.key === 'heart_rate') setHeartRate(s.value);
         if (s.category === 'mood' && s.key === 'current') setStatusText(s.value);
         if (s.category === 'mood' && s.key === 'note') setTodayNote(s.value);
@@ -555,7 +553,6 @@ export default function Dashboard() {
             <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'spoons')} />
             <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'battery')} />
             <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'pain')} />
-            <EditableStatus label="FOG" value={fog} onChange={setFog} onSave={(v) => saveStatus('body', 'fog', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'fog')} />
             <EditableStatus label="EMOTION" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent history={statusHistory.filter(h => h.category === 'body' && h.key === 'heart_rate')} />
             <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} history={statusHistory.filter(h => h.category === 'mood' && h.key === 'current')} />
           </div>
@@ -739,17 +736,17 @@ export default function Dashboard() {
                     className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
                     style={{
                       background: currentQuestion.asked_by === 'lincoln'
-                        ? 'rgba(119,230,197,0.15)'
+                        ? 'rgba(138,138,154,0.15)'
                         : 'rgba(229,178,230,0.15)',
-                      color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
-                      border: `1px solid ${currentQuestion.asked_by === 'lincoln' ? 'rgba(119,230,197,0.3)' : 'rgba(229,178,230,0.3)'}`,
+                      color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
+                      border: `1px solid ${currentQuestion.asked_by === 'lincoln' ? 'rgba(138,138,154,0.3)' : 'rgba(229,178,230,0.3)'}`,
                     }}
                   >
                     {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
                   </div>
                   <div className="flex-1">
                     <p className="text-xs text-vale-muted mb-1">
-                      <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                      <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
                         {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
                       </span>
                       {' '}asks:
@@ -793,15 +790,15 @@ export default function Dashboard() {
                     <div
                       className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
                       style={{
-                        background: currentQuestion.asked_by === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)',
-                        color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
+                        background: currentQuestion.asked_by === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)',
+                        color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
                       }}
                     >
                       {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
                     </div>
                     <div>
                       <p className="text-[10px] text-vale-muted mb-0.5">
-                        <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                        <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
                           {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
                         </span>
                         {' '}asked
@@ -814,15 +811,15 @@ export default function Dashboard() {
                     <div
                       className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
                       style={{
-                        background: currentQuestion.answered_by === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)',
-                        color: currentQuestion.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6',
+                        background: currentQuestion.answered_by === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)',
+                        color: currentQuestion.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
                       }}
                     >
                       {currentQuestion.answered_by === 'lincoln' ? 'L' : 'A'}
                     </div>
                     <div>
                       <p className="text-[10px] text-vale-muted mb-0.5">
-                        <span style={{ color: currentQuestion.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} className="font-semibold">
+                        <span style={{ color: currentQuestion.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
                           {currentQuestion.answered_by === 'lincoln' ? 'Lincoln' : 'Arden'}
                         </span>
                         {' '}answered
@@ -884,7 +881,7 @@ export default function Dashboard() {
                   {recentQuestions.map((q) => (
                     <div key={q.id} className="bg-vale-surface rounded p-3 border border-vale-border">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-semibold" style={{ color: q.asked_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+                        <span className="text-[10px] font-semibold" style={{ color: q.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
                           {q.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
                         </span>
                         <span className="text-[10px] text-vale-muted">
@@ -893,7 +890,7 @@ export default function Dashboard() {
                       </div>
                       <p className="text-xs text-vale-text mb-1">{q.question}</p>
                       {q.answer && (
-                        <p className="text-xs text-vale-muted italic pl-3 border-l-2" style={{ borderColor: q.answered_by === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+                        <p className="text-xs text-vale-muted italic pl-3 border-l-2" style={{ borderColor: q.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
                           {q.answer}
                         </p>
                       )}

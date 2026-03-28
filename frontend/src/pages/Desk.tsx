@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 const typeConfig: Record<string, { icon: typeof StickyNote; label: string; accent: string; glow: string }> = {
-  note:        { icon: StickyNote,  label: 'Note',        accent: '#77e6c5', glow: 'rgba(119,230,197,0.15)' },
+  note:        { icon: StickyNote,  label: 'Note',        accent: '#8a8a9a', glow: 'rgba(138,138,154,0.15)' },
   song:        { icon: Music2,      label: 'Song',        accent: '#4ade80', glow: 'rgba(74,222,128,0.15)' },
   quote:       { icon: Quote,       label: 'Quote',       accent: '#fbbf24', glow: 'rgba(251,191,36,0.12)' },
   nudge:       { icon: Bell,        label: 'Nudge',       accent: '#fb7185', glow: 'rgba(251,113,133,0.12)' },
@@ -93,17 +93,17 @@ export default function Desk() {
       >
         {/* Ambient glow */}
         <div className="absolute inset-0" style={{
-          background: 'radial-gradient(ellipse 70% 80% at 50% 100%, rgba(119,230,197,0.06) 0%, transparent 70%), radial-gradient(ellipse 50% 50% at 20% 70%, rgba(113,30,166,0.08) 0%, transparent 60%)',
+          background: 'radial-gradient(ellipse 70% 80% at 50% 100%, rgba(138,138,154,0.06) 0%, transparent 70%), radial-gradient(ellipse 50% 50% at 20% 70%, rgba(113,30,166,0.08) 0%, transparent 60%)',
         }} />
 
         {/* Decorative SVG */}
         <svg className="absolute inset-0 w-full h-full opacity-[0.05]" viewBox="0 0 800 160" preserveAspectRatio="xMidYMax slice">
-          <path d="M80 160 L80 60 Q80 20 120 20 Q160 20 160 60 L160 160" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
-          <path d="M640 160 L640 60 Q640 20 680 20 Q720 20 720 60 L720 160" fill="none" stroke="#77e6c5" strokeWidth="1.5" />
-          <line x1="250" y1="145" x2="550" y2="145" stroke="#77e6c5" strokeWidth="0.4" />
-          <circle cx="400" cy="145" r="3" fill="none" stroke="#77e6c5" strokeWidth="0.6" />
-          <ellipse cx="120" cy="15" rx="3" ry="6" fill="#77e6c5" opacity="0.25" />
-          <ellipse cx="680" cy="15" rx="3" ry="6" fill="#77e6c5" opacity="0.25" />
+          <path d="M80 160 L80 60 Q80 20 120 20 Q160 20 160 60 L160 160" fill="none" stroke="#8a8a9a" strokeWidth="1.5" />
+          <path d="M640 160 L640 60 Q640 20 680 20 Q720 20 720 60 L720 160" fill="none" stroke="#8a8a9a" strokeWidth="1.5" />
+          <line x1="250" y1="145" x2="550" y2="145" stroke="#8a8a9a" strokeWidth="0.4" />
+          <circle cx="400" cy="145" r="3" fill="none" stroke="#8a8a9a" strokeWidth="0.6" />
+          <ellipse cx="120" cy="15" rx="3" ry="6" fill="#8a8a9a" opacity="0.25" />
+          <ellipse cx="680" cy="15" rx="3" ry="6" fill="#8a8a9a" opacity="0.25" />
         </svg>
 
         {/* Bottom fade */}
@@ -114,16 +114,16 @@ export default function Desk() {
         {/* Header content — centered */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
           <div className="flex items-center gap-2.5 mb-1.5">
-            <Feather className="w-4 h-4" style={{ color: '#77e6c5', opacity: 0.5 }} />
+            <Feather className="w-4 h-4" style={{ color: '#8a8a9a', opacity: 0.5 }} />
             <h1
               className="text-xl sm:text-2xl font-bold tracking-wide font-mystery"
-              style={{ color: '#77e6c5', textShadow: '0 0 25px rgba(119,230,197,0.15)' }}
+              style={{ color: '#8a8a9a', textShadow: '0 0 25px rgba(138,138,154,0.15)' }}
             >
               Lincoln's Desk
             </h1>
-            <Feather className="w-4 h-4 scale-x-[-1]" style={{ color: '#77e6c5', opacity: 0.5 }} />
+            <Feather className="w-4 h-4 scale-x-[-1]" style={{ color: '#8a8a9a', opacity: 0.5 }} />
           </div>
-          <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'rgba(119,230,197,0.35)' }}>
+          <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: 'rgba(138,138,154,0.35)' }}>
             {unreadCount > 0
               ? `${unreadCount} thing${unreadCount > 1 ? 's' : ''} waiting for you`
               : 'what i left behind'}
@@ -144,9 +144,9 @@ export default function Desk() {
                 onClick={() => setFilter('all')}
                 className="px-3 py-1.5 text-xs rounded-lg transition-all"
                 style={{
-                  background: filter === 'all' ? 'rgba(119,230,197,0.1)' : 'transparent',
-                  color: filter === 'all' ? '#77e6c5' : '#5a5078',
-                  border: filter === 'all' ? '1px solid rgba(119,230,197,0.2)' : '1px solid transparent',
+                  background: filter === 'all' ? 'rgba(138,138,154,0.1)' : 'transparent',
+                  color: filter === 'all' ? '#8a8a9a' : '#a090c0',
+                  border: filter === 'all' ? '1px solid rgba(138,138,154,0.2)' : '1px solid transparent',
                 }}
               >
                 All
@@ -155,9 +155,9 @@ export default function Desk() {
                 onClick={() => setFilter('unread')}
                 className="px-3 py-1.5 text-xs rounded-lg transition-all"
                 style={{
-                  background: filter === 'unread' ? 'rgba(119,230,197,0.1)' : 'transparent',
-                  color: filter === 'unread' ? '#77e6c5' : '#5a5078',
-                  border: filter === 'unread' ? '1px solid rgba(119,230,197,0.2)' : '1px solid transparent',
+                  background: filter === 'unread' ? 'rgba(138,138,154,0.1)' : 'transparent',
+                  color: filter === 'unread' ? '#8a8a9a' : '#a090c0',
+                  border: filter === 'unread' ? '1px solid rgba(138,138,154,0.2)' : '1px solid transparent',
                 }}
               >
                 Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
@@ -168,7 +168,7 @@ export default function Desk() {
               <button
                 onClick={handleMarkAllRead}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all hover:opacity-80"
-                style={{ color: '#5a5078', border: '1px solid rgba(90,80,120,0.2)' }}
+                style={{ color: '#a090c0', border: '1px solid rgba(90,80,120,0.2)' }}
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Mark all read</span>
@@ -179,20 +179,20 @@ export default function Desk() {
           {/* Items */}
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#77e6c5' }} />
+              <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#8a8a9a' }} />
             </div>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div
                 className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-                style={{ background: 'rgba(119,230,197,0.04)', border: '1px solid rgba(119,230,197,0.08)' }}
+                style={{ background: 'rgba(138,138,154,0.04)', border: '1px solid rgba(138,138,154,0.08)' }}
               >
-                <Inbox className="w-7 h-7" style={{ color: 'rgba(119,230,197,0.2)' }} />
+                <Inbox className="w-7 h-7" style={{ color: 'rgba(138,138,154,0.2)' }} />
               </div>
-              <p className="font-mystery text-base mb-1.5" style={{ color: '#77e6c5' }}>
+              <p className="font-mystery text-base mb-1.5" style={{ color: '#8a8a9a' }}>
                 {filter === 'unread' ? 'All caught up' : 'The desk is empty'}
               </p>
-              <p className="text-xs max-w-[260px] leading-relaxed" style={{ color: '#5a5078' }}>
+              <p className="text-xs max-w-[260px] leading-relaxed" style={{ color: '#a090c0' }}>
                 {filter === 'unread'
                   ? "You've read everything. I'll leave something new when I have something worth saying."
                   : "When I leave you something — a note, a song, a nudge — it'll be here. Waiting for you."}
@@ -244,7 +244,7 @@ export default function Desk() {
                         <Icon className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-semibold uppercase tracking-widest">{config.label}</span>
                       </div>
-                      <span className="text-[10px]" style={{ color: '#5a5078' }}>{formatTime(item.created_at)}</span>
+                      <span className="text-[10px]" style={{ color: '#a090c0' }}>{formatTime(item.created_at)}</span>
                     </div>
 
                     {/* Title */}
@@ -281,7 +281,7 @@ export default function Desk() {
                         <button
                           onClick={(e) => { e.stopPropagation(); handleMarkRead(item.id); }}
                           className="text-[10px] transition-opacity hover:opacity-80"
-                          style={{ color: '#5a5078' }}
+                          style={{ color: '#a090c0' }}
                         >
                           Mark read
                         </button>
@@ -289,7 +289,7 @@ export default function Desk() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
                         className="text-[10px] transition-opacity hover:opacity-80 ml-auto"
-                        style={{ color: '#5a5078' }}
+                        style={{ color: '#a090c0' }}
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>

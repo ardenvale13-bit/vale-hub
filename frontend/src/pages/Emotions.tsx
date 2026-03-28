@@ -12,7 +12,7 @@ const EMOTION_VOCABULARY = [
 
 const PILLARS = [
   { key: 'self-awareness', label: 'Self-Awareness', color: '#34bed6' },
-  { key: 'self-management', label: 'Self-Management', color: '#77e6c5' },
+  { key: 'self-management', label: 'Self-Management', color: '#8a8a9a' },
   { key: 'social-awareness', label: 'Social Awareness', color: '#e5b2e6' },
   { key: 'relationship-management', label: 'Relationship', color: '#711ea6' },
 ];

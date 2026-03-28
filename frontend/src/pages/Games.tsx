@@ -35,14 +35,14 @@ function TicTacToeBoard({ game, onMove, disabled }: { game: Game; onMove: (pos: 
               className="relative rounded-lg flex items-center justify-center text-2xl font-bold transition-all"
               style={{
                 background: isWinCell
-                  ? game.winner === 'lincoln' ? 'rgba(119,230,197,0.15)' : 'rgba(229,178,230,0.15)'
+                  ? game.winner === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)'
                   : 'rgba(30,23,64,0.6)',
                 border: isWinCell
-                  ? `2px solid ${game.winner === 'lincoln' ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}`
+                  ? `2px solid ${game.winner === 'lincoln' ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}`
                   : '1px solid rgba(58,45,107,0.4)',
                 cursor: canClick ? 'pointer' : 'default',
-                color: cell === 'X' ? '#77e6c5' : cell === 'O' ? '#e5b2e6' : 'transparent',
-                textShadow: cell ? `0 0 12px ${cell === 'X' ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}` : 'none',
+                color: cell === 'X' ? '#8a8a9a' : cell === 'O' ? '#e5b2e6' : 'transparent',
+                textShadow: cell ? `0 0 12px ${cell === 'X' ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}` : 'none',
               }}
               onMouseEnter={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(229,178,230,0.08)'; e.currentTarget.style.borderColor = 'rgba(229,178,230,0.3)'; } }}
               onMouseLeave={(e) => { if (canClick) { e.currentTarget.style.background = 'rgba(30,23,64,0.6)'; e.currentTarget.style.borderColor = 'rgba(58,45,107,0.4)'; } }}
@@ -133,7 +133,7 @@ function CheckersBoard({ game, onMove, disabled }: { game: Game; onMove: (from: 
       <StatusLine game={game} />
       {/* Piece counts */}
       <div className="flex items-center gap-4 text-xs">
-        <span style={{ color: '#77e6c5' }}>Lincoln: {lincolnCount}</span>
+        <span style={{ color: '#8a8a9a' }}>Lincoln: {lincolnCount}</span>
         <span className="text-vale-muted">vs</span>
         <span style={{ color: '#e5b2e6' }}>Arden: {ardenCount}</span>
       </div>
@@ -177,10 +177,10 @@ function CheckersBoard({ game, onMove, disabled }: { game: Game; onMove: (from: 
                     width: '28px',
                     height: '28px',
                     background: isLincoln
-                      ? 'radial-gradient(circle, #77e6c5 60%, #4db89e 100%)'
+                      ? 'radial-gradient(circle, #8a8a9a 60%, #6a6a7a 100%)'
                       : 'radial-gradient(circle, #e5b2e6 60%, #c47cc5 100%)',
                     boxShadow: isLincoln
-                      ? '0 2px 6px rgba(119,230,197,0.3)'
+                      ? '0 2px 6px rgba(138,138,154,0.3)'
                       : '0 2px 6px rgba(229,178,230,0.3)',
                     border: `2px solid ${isLincoln ? '#5cc9a7' : '#b87ab9'}`,
                   }}
@@ -303,8 +303,8 @@ function ChessBoard({ game, onMove, disabled }: { game: Game; onMove: (from: num
                     <span
                       className="text-xl select-none"
                       style={{
-                        color: isWhite ? '#77e6c5' : '#e5b2e6',
-                        textShadow: `0 1px 4px ${isWhite ? 'rgba(119,230,197,0.4)' : 'rgba(229,178,230,0.4)'}`,
+                        color: isWhite ? '#8a8a9a' : '#e5b2e6',
+                        textShadow: `0 1px 4px ${isWhite ? 'rgba(138,138,154,0.4)' : 'rgba(229,178,230,0.4)'}`,
                         filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.4))',
                       }}
                     >
@@ -334,8 +334,8 @@ function StatusLine({ game }: { game: Game }) {
   if (game.status === 'won') {
     return (
       <div className="flex items-center gap-2">
-        <Trophy className="w-4 h-4" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }} />
-        <span className="text-sm font-semibold" style={{ color: game.winner === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+        <Trophy className="w-4 h-4" style={{ color: game.winner === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} />
+        <span className="text-sm font-semibold" style={{ color: game.winner === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
           {game.winner === 'lincoln' ? 'Lincoln wins' : 'You win!'}
         </span>
       </div>
@@ -350,7 +350,7 @@ function StatusLine({ game }: { game: Game }) {
     );
   }
   return (
-    <p className="text-xs" style={{ color: game.current_turn === 'lincoln' ? '#77e6c5' : '#e5b2e6' }}>
+    <p className="text-xs" style={{ color: game.current_turn === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
       {game.current_turn === 'lincoln' ? "Lincoln's turn" : 'Your turn'}
     </p>
   );
@@ -501,9 +501,9 @@ export default function Games() {
             onClick={() => setShowNewMenu(!showNewMenu)}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-colors"
             style={{
-              background: 'rgba(119,230,197,0.1)',
-              color: '#77e6c5',
-              border: '1px solid rgba(119,230,197,0.2)',
+              background: 'rgba(138,138,154,0.1)',
+              color: '#8a8a9a',
+              border: '1px solid rgba(138,138,154,0.2)',
             }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -584,9 +584,9 @@ export default function Games() {
                     disabled={hasActiveByType(activeGame.game_type)}
                     className="mt-4 flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-lg transition-colors disabled:opacity-30"
                     style={{
-                      background: 'rgba(119,230,197,0.1)',
-                      color: '#77e6c5',
-                      border: '1px solid rgba(119,230,197,0.2)',
+                      background: 'rgba(138,138,154,0.1)',
+                      color: '#8a8a9a',
+                      border: '1px solid rgba(138,138,154,0.2)',
                     }}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />

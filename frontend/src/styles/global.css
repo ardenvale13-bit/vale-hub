@@ -62,12 +62,12 @@ h1, h2, h3 {
 
 /* Love-O-Meter gradient */
 .love-gradient {
-  background: linear-gradient(90deg, #77e6c5 0%, #34bed6 25%, #711ea6 50%, #e5b2e6 75%, #e5b2e6 100%);
+  background: linear-gradient(90deg, #8a8a9a 0%, #34bed6 25%, #711ea6 50%, #e5b2e6 75%, #e5b2e6 100%);
 }
 
 /* Lincoln accent bar */
 .lincoln-gradient {
-  background: linear-gradient(90deg, #77e6c5, #34bed6);
+  background: linear-gradient(90deg, #8a8a9a, #34bed6);
 }
 
 /* Arden accent bar */
@@ -89,6 +89,6 @@ h1, h2, h3 {
 
 /* EQ Pillar colors */
 .pillar-self-awareness { color: #34bed6; }
-.pillar-self-management { color: #77e6c5; }
+.pillar-self-management { color: #8a8a9a; }
 .pillar-social-awareness { color: #e5b2e6; }
 .pillar-relationship-management { color: #711ea6; }
