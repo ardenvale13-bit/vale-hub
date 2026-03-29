@@ -243,7 +243,18 @@ export async function handleToolCall(
 
       case 'discord_read': {
         const { channel_id, limit } = toolInput;
-        return await discordService.readMessages(channel_id, limit || 50);
+        const messages = await discordService.readMessages(channel_id, limit || 50);
+        // Tag image attachments with _image_url so the MCP server auto-embeds them
+        for (const msg of messages) {
+          if (msg.attachments) {
+            for (const att of msg.attachments) {
+              if (/\.(png|jpe?g|gif|webp)$/i.test(att.name)) {
+                (att as any)._image_url = att.url;
+              }
+            }
+          }
+        }
+        return messages;
       }
 
       case 'discord_guilds': {
