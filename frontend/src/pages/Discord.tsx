@@ -388,7 +388,37 @@ export default function Discord() {
                         <span className="font-medium text-vale-text text-sm">{msg.author}</span>
                         <span className="text-xs text-vale-muted">{formatTime(msg.timestamp)}</span>
                       </div>
-                      <p className="text-sm text-vale-text/80 break-words whitespace-pre-wrap">{msg.content}</p>
+                      {msg.content && (
+                        <p className="text-sm text-vale-text/80 break-words whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mt-1.5 flex flex-col gap-1.5">
+                          {msg.attachments.map((att, i) => {
+                            const isImage = /\.(png|jpe?g|gif|webp)$/i.test(att.name);
+                            return isImage ? (
+                              <a key={i} href={att.url} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={att.url}
+                                  alt={att.name}
+                                  className="rounded-lg max-w-[300px] max-h-[280px] object-contain border border-vale-border/30"
+                                  loading="lazy"
+                                />
+                              </a>
+                            ) : (
+                              <a
+                                key={i}
+                                href={att.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-vale-accent hover:underline px-2.5 py-1.5 rounded-md bg-vale-surface border border-vale-border/30 w-fit"
+                              >
+                                📎 {att.name}
+                                <span className="text-vale-muted">({(att.size / 1024).toFixed(0)}KB)</span>
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
