@@ -36,11 +36,6 @@ async function apiCall<T>(
     throw new Error(`API Error: ${response.status} ${response.statusText}`);
   }
 
-  // Check content-type before parsing JSON
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
-    throw new Error(`Backend not reachable — check VITE_API_URL (got HTML instead of JSON)`);
-  }
   return response.json();
 }
 
@@ -214,8 +209,8 @@ const status = {
   get: (category?: string) =>
     apiCall<Status | Status[]>(`/status${category ? `/${category}` : ''}`),
 
-  set: (category: string, key: string, value: string) =>
-    apiCall<Status>('/status', 'POST', { category, key, value }),
+  set: (status: Status) =>
+    apiCall<Status>('/status', 'POST', status),
 
   update: (category: string, key: string, value: string) =>
     apiCall<Status>(`/status/${category}/${key}`, 'PUT', { value }),
@@ -707,8 +702,8 @@ export interface Weather {
 }
 
 const weather = {
-  current: (location?: string) =>
-    apiCall<Weather>(`/weather/current${location ? `?location=${encodeURIComponent(location)}` : ''}`),
+  current: () => apiCall<Weather>('/weather/current'),
+  forecast: () => apiCall<any>('/weather/forecast'),
 };
 
 export const api = {
