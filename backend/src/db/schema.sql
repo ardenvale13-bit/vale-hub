@@ -624,3 +624,4 @@ ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
 -- HEARTH SCHEMA COMPLETE
 -- Embers Remember.
 -- ============================================================
+

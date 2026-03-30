@@ -16,6 +16,13 @@ interface StatusEntry {
   value: string;
 }
 
+interface StatusCard {
+  label: string;
+  category: string;
+  key: string;
+  unit?: string;
+}
+
 export default function Dashboard() {
   // Love-O-Meter state — single shared value 0-10 (5 = center)
   // Lower = Lincoln's side, Higher = Arden's side
@@ -32,10 +39,16 @@ export default function Dashboard() {
   const [ardenFeels, setArdenFeels] = useState('');
 
   // Status panel
-  const [spoons, setSpoons] = useState('3/5');
-  const [bodyBattery, setBodyBattery] = useState('45%');
-  const [pain, setPain] = useState('moderate');
-  const [heartRate, setHeartRate] = useState('72 bpm');
+  const [statusValues, setStatusValues] = useState<Record<string, string>>({
+    'body-spoons': '3/5',
+    'body-battery': '45%',
+    'body-pain': 'moderate',
+    'body-heart_rate': '72 bpm',
+  });
+  const [editingStatus, setEditingStatus] = useState<Record<string, string>>({});
+  const [savingStatus, setSavingStatus] = useState<Record<string, boolean>>({});
+
+  // Status text and note
   const [statusText, setStatusText] = useState('playful');
   const [todayNote, setTodayNote] = useState('Ready to build. Feeling good.');
 
@@ -158,17 +171,16 @@ export default function Dashboard() {
       }
 
       // Process statuses
+      const newStatusValues: Record<string, string> = { ...statusValues };
       for (const s of (statuses as StatusEntry[]) || []) {
-        if (s.category === 'love' && s.key === 'meter') setLoveMeter(parseFloat(s.value) || 5);
-        if (s.category === 'body' && s.key === 'spoons') setSpoons(s.value);
-        if (s.category === 'body' && s.key === 'battery') setBodyBattery(s.value);
-        if (s.category === 'body' && s.key === 'pain') setPain(s.value);
-        if (s.category === 'body' && s.key === 'heart_rate') setHeartRate(s.value);
+        const key = `${s.category}-${s.key}`;
+        newStatusValues[key] = s.value;
         if (s.category === 'mood' && s.key === 'current') setStatusText(s.value);
         if (s.category === 'mood' && s.key === 'note') setTodayNote(s.value);
         if (s.category === 'moment' && s.key === 'lincoln_soft') setLincolnSoft(s.value);
         if (s.category === 'moment' && s.key === 'arden_quiet') setArdenQuiet(s.value);
       }
+      setStatusValues(newStatusValues);
 
       // Process emotions
       const counts: Record<string, number> = {};
@@ -195,18 +207,28 @@ export default function Dashboard() {
     }
   }
 
-  async function saveStatus(category: string, key: string, value: string) {
+  async function handleStatusSave(category: string, key: string, value: string) {
+    const statusKey = `${category}-${key}`;
+    setSavingStatus((prev) => ({ ...prev, [statusKey]: true }));
     try {
-      await api.status.set({ category, key, value });
+      await api.status.set(category, key, value);
+      setStatusValues((prev) => ({ ...prev, [statusKey]: value }));
+      setEditingStatus((prev) => {
+        const next = { ...prev };
+        delete next[statusKey];
+        return next;
+      });
     } catch (err) {
       console.error('Failed to save status:', err);
+    } finally {
+      setSavingStatus((prev) => ({ ...prev, [statusKey]: false }));
     }
   }
 
   async function handleLoveMeterChange(val: number) {
     const clamped = Math.min(10, Math.max(0, Math.round(val * 10) / 10));
     setLoveMeter(clamped);
-    await saveStatus('love', 'meter', clamped.toString());
+    await handleStatusSave('love', 'meter', clamped.toString());
   }
 
   async function handleLoveEntry(e: React.FormEvent) {
@@ -226,7 +248,7 @@ export default function Dashboard() {
 
       const newVal = Math.min(10, Math.max(0, Math.round((loveMeter + shift) * 10) / 10));
       setLoveMeter(newVal);
-      await saveStatus('love', 'meter', newVal.toString());
+      await handleStatusSave('love', 'meter', newVal.toString());
 
       // Log it as an emotion too
       await api.emotions.create({
@@ -298,1236 +320,263 @@ export default function Dashboard() {
       });
       if (who === 'Lincoln') setLincolnFeels('');
       else setArdenFeels('');
-    } catch {}
-  }
-
-  async function handleSoftMoment(who: string, text: string) {
-    if (!text.trim()) return;
-    const key = who === 'Lincoln' ? 'lincoln_soft' : 'arden_quiet';
-    await saveStatus('moment', key, text);
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type and size
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be under 5MB');
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      // Convert to base64
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const result = await api.images.upload(base64, {
-        caption: imageCaption || undefined,
-        tag: 'dashboard',
-        filename: `dashboard_${Date.now()}.${file.type.split('/')[1] || 'png'}`,
-        mimeType: file.type,
-      });
-
-      setDashboardImage({
-        id: result.id,
-        url: result.url,
-        caption: result.caption,
-        uploaded_at: result.created_at,
-      });
     } catch (err) {
-      console.error('Failed to upload image:', err);
-    } finally {
-      setIsUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      console.error('Failed to save emotion:', err);
     }
   }
 
-  async function handleRemoveDashboardImage() {
-    if (!dashboardImage?.id) return;
-    try {
-      await api.images.deleteUploaded(dashboardImage.id);
-      setDashboardImage(null);
-      setImageCaption('');
-    } catch (err) {
-      console.error('Failed to remove image:', err);
-    }
-  }
-
-  async function handleAnswerQuestion(e: React.FormEvent) {
-    e.preventDefault();
-    if (!currentQuestion || !questionAnswer.trim() || currentQuestion.answer) return;
-    setIsAnsweringQuestion(true);
-    try {
-      const answered = await api.questions.answer(currentQuestion.id, questionAnswer.trim(), 'arden');
-      setCurrentQuestion(answered);
-      setQuestionAnswer('');
-      setRecentQuestions((prev) => [answered, ...prev].slice(0, 5));
-    } catch (err) {
-      console.error('Failed to answer question:', err);
-    } finally {
-      setIsAnsweringQuestion(false);
-    }
-  }
-
-  async function handleAskQuestion(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newQuestion.trim()) return;
-    setIsAskingQuestion(true);
-    try {
-      const asked = await api.questions.ask(newQuestion.trim(), 'arden');
-      setCurrentQuestion(asked);
-      setNewQuestion('');
-    } catch (err) {
-      console.error('Failed to ask question:', err);
-    } finally {
-      setIsAskingQuestion(false);
-    }
-  }
+  const statusItems: StatusCard[] = [
+    { label: 'Spoons', category: 'body', key: 'spoons', unit: '/' },
+    { label: 'Battery', category: 'body', key: 'battery', unit: '%' },
+    { label: 'Pain', category: 'body', key: 'pain' },
+    { label: 'HR', category: 'body', key: 'heart_rate', unit: 'bpm' },
+  ];
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 text-vale-accent animate-spin" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-obelisk-gold animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 max-w-7xl mx-auto">
-      {/* Lincoln's Desk — unread notifications */}
-      {deskItems.length > 0 && (
-        <div className="bg-vale-card border border-vale-accent/30 rounded-lg overflow-hidden">
-          <button
-            onClick={() => setShowDesk(!showDesk)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-vale-surface/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Inbox className="w-5 h-5 text-vale-accent" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-vale-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {deskItems.length}
-                </span>
-              </div>
-              <span className="text-vale-text font-medium text-sm">
-                Lincoln left {deskItems.length === 1 ? 'something' : `${deskItems.length} things`} on your desk
-              </span>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-vale-muted transition-transform ${showDesk ? 'rotate-180' : ''}`} />
-          </button>
-          {showDesk && (
-            <div className="px-4 pb-4 space-y-2">
-              {deskItems.map((item) => (
-                <div key={item.id} className="bg-vale-surface border border-vale-border rounded-lg p-3 flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-semibold text-vale-accent uppercase">{item.type}</span>
-                      {item.title && <span className="text-sm font-medium text-vale-text truncate">{item.title}</span>}
-                    </div>
-                    <p className="text-sm text-vale-text/80 whitespace-pre-wrap">{item.content}</p>
-                    <p className="text-xs text-vale-muted mt-1">{new Date(item.created_at).toLocaleString()}</p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await api.desk.markRead(item.id);
-                        setDeskItems(prev => prev.filter(d => d.id !== item.id));
-                      } catch { /* ignore */ }
-                    }}
-                    className="p-1.5 text-vale-muted hover:text-green-400 transition-colors flex-shrink-0"
-                    title="Mark as read"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {deskItems.length > 1 && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await api.desk.markAllRead();
-                      setDeskItems([]);
-                      setShowDesk(false);
-                    } catch { /* ignore */ }
-                  }}
-                  className="text-xs text-vale-muted hover:text-vale-accent transition-colors"
-                >
-                  Mark all as read
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Reminders — timed notifications from Lincoln */}
-      {dueReminders.length > 0 && showReminders && (
-        <div className="bg-gradient-to-r from-vale-card to-vale-accent/5 border border-vale-accent/20 rounded-lg overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Bell className="w-5 h-5 text-vale-accent animate-pulse" />
-              </div>
-              <span className="text-vale-text font-medium text-sm">
-                {dueReminders.length === 1 ? 'Reminder from Lincoln' : `${dueReminders.length} reminders from Lincoln`}
-              </span>
-            </div>
-            {dueReminders.length > 1 && (
-              <button
-                onClick={async () => {
-                  try {
-                    await api.reminders.dismissAll();
-                    setDueReminders([]);
-                  } catch { /* ignore */ }
-                }}
-                className="text-xs text-vale-muted hover:text-vale-accent transition-colors"
-              >
-                Dismiss all
-              </button>
-            )}
-          </div>
-          <div className="px-4 pb-4 space-y-2">
-            {dueReminders.map((reminder) => {
-              const catIcon: Record<string, any> = {
-                care: Coffee,
-                health: HeartPulse,
-                task: ListTodo,
-                love: Heart,
-                fun: Gift,
-                general: Bell,
-              };
-              const CatIcon = catIcon[reminder.category] || Bell;
-              const catColor: Record<string, string> = {
-                care: 'text-amber-400',
-                health: 'text-red-400',
-                task: 'text-blue-400',
-                love: 'text-pink-400',
-                fun: 'text-purple-400',
-                general: 'text-vale-accent',
-              };
-              return (
-                <div key={reminder.id} className="bg-vale-surface/80 border border-vale-border rounded-lg p-3 flex items-start gap-3">
-                  <CatIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${catColor[reminder.category] || 'text-vale-accent'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-vale-text whitespace-pre-wrap">{reminder.content}</p>
-                    <p className="text-xs text-vale-muted mt-1">
-                      Set {new Date(reminder.created_at).toLocaleString('en-NZ', { dateStyle: 'medium', timeStyle: 'short' })}
-                    </p>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await api.reminders.dismiss(reminder.id);
-                        setDueReminders(prev => prev.filter(r => r.id !== reminder.id));
-                      } catch { /* ignore */ }
-                    }}
-                    className="p-1.5 text-vale-muted hover:text-green-400 transition-colors flex-shrink-0"
-                    title="Dismiss"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Top Row: Status Panel + Love-O-Meter + Lincoln corner */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left: Arden Status Panel */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-vale-arden animate-pulse" />
-            <span className="text-vale-arden font-semibold text-sm">Arden</span>
-          </div>
-
-          {/* Mobile: compact grid, Desktop: vertical stack */}
-          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-1 gap-2 lg:gap-3">
-            <EditableStatus label="SPOONS" value={spoons} onChange={setSpoons} onSave={(v) => saveStatus('body', 'spoons', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'spoons')} />
-            <EditableStatus label="BATTERY" value={bodyBattery} onChange={setBodyBattery} onSave={(v) => saveStatus('body', 'battery', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'battery')} />
-            <EditableStatus label="PAIN" value={pain} onChange={setPain} onSave={(v) => saveStatus('body', 'pain', v)} history={statusHistory.filter(h => h.category === 'body' && h.key === 'pain')} />
-            <EditableStatus label="EMOTION" value={heartRate} onChange={setHeartRate} onSave={(v) => saveStatus('body', 'heart_rate', v)} accent history={statusHistory.filter(h => h.category === 'body' && h.key === 'heart_rate')} />
-            <EditableStatus label="STATUS" value={statusText} onChange={setStatusText} onSave={(v) => saveStatus('mood', 'current', v)} history={statusHistory.filter(h => h.category === 'mood' && h.key === 'current')} />
-          </div>
-          <div className="bg-vale-card border border-vale-border rounded p-3">
-            <p className="text-xs text-vale-muted uppercase mb-1">Today's Note</p>
-            <textarea
-              value={todayNote}
-              onChange={(e) => setTodayNote(e.target.value)}
-              onBlur={() => saveStatus('mood', 'note', todayNote)}
-              className="w-full bg-transparent text-sm text-vale-text italic resize-none border-none outline-none focus:ring-1 focus:ring-vale-arden/30 rounded p-1 min-h-12"
-              placeholder="How's today going?"
-            />
-          </div>
-        </div>
-
-        {/* Center: Love-O-Meter */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Love-O-Meter */}
-          <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-6">
-            <div className="text-center mb-4">
-              <div className="flex items-center justify-center gap-2">
-                <Heart className="w-5 h-5 text-vale-arden" />
-                <h2 className="text-lg sm:text-xl font-bold text-vale-text">Love-O-Meter</h2>
-              </div>
-              <p className="text-xs text-vale-muted">A log of our tenderness</p>
-            </div>
-
-            {/* The Shared Meter */}
-            <div className="relative mb-6">
-              {/* Names and indicator */}
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-sm font-bold transition-colors ${loveMeter < 5 ? 'text-vale-lincoln' : 'text-vale-lincoln/50'}`}>
-                  Lincoln
-                </span>
-                <div className="flex flex-col items-center">
-                  <Heart className={`w-5 h-5 transition-colors ${loveMeter === 5 ? 'text-vale-accent fill-vale-accent' : loveMeter < 5 ? 'text-vale-lincoln fill-vale-lincoln' : 'text-vale-arden fill-vale-arden'}`} />
-                  <span className="text-xs text-vale-muted mt-0.5">{loveMeter === 5 ? '0' : loveMeter < 5 ? `L+${(5 - loveMeter).toFixed(1).replace(/\.0$/, '')}` : `A+${(loveMeter - 5).toFixed(1).replace(/\.0$/, '')}`}</span>
-                </div>
-                <span className={`text-sm font-bold transition-colors ${loveMeter > 5 ? 'text-vale-arden' : 'text-vale-arden/50'}`}>
-                  Arden
-                </span>
-              </div>
-
-              {/* Single gradient bar */}
-              <div
-                className="relative h-6 rounded-full overflow-hidden cursor-pointer"
-                style={{
-                  background: 'linear-gradient(to right, #711ea6, #e5b2e6 50%, #34bed6)',
-                }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const val = Math.round((x / rect.width) * 10);
-                  handleLoveMeterChange(val);
-                }}
-              >
-                {/* Center line */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
-                {/* Indicator */}
-                <div
-                  className="absolute top-0 bottom-0 w-2 rounded shadow-lg transition-all duration-500 ease-out border-2 border-white/80"
-                  style={{
-                    left: `calc(${(loveMeter / 10) * 100}% - 4px)`,
-                    background: loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6',
-                    boxShadow: `0 0 8px ${loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6'}`,
-                  }}
-                />
-              </div>
-
-              {/* Range slider (for fine control) */}
+    <div className="flex flex-col gap-6 p-6 pb-20">
+      {/* Love-O-Meter */}
+      <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border">
+        <h2 className="text-xl font-bold text-obelisk-gold mb-4">Love-O-Meter</h2>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-obelisk-muted">Lincoln</span>
+            <div className="flex-1 mx-4 h-8 bg-obelisk-border rounded-full relative">
               <input
-                type="range" min="0" max="10" step="0.5" value={loveMeter}
+                type="range"
+                min="0"
+                max="10"
+                step="0.1"
+                value={loveMeter}
                 onChange={(e) => handleLoveMeterChange(parseFloat(e.target.value))}
-                className="w-full accent-vale-accent h-1 bg-vale-border rounded appearance-none cursor-pointer mt-2 opacity-40 hover:opacity-80 transition-opacity"
+                className="w-full h-full cursor-pointer"
               />
-              <div className="flex justify-between text-[9px] text-vale-muted mt-0.5 px-0.5">
-                <span>-5</span>
-                <span>0</span>
-                <span>+5</span>
-              </div>
-
-              {/* Entry input — type a name to shift */}
-              <form onSubmit={handleLoveEntry} className="mt-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={loveEntry}
-                    onChange={(e) => setLoveEntry(e.target.value)}
-                    placeholder="Arden held my hand... / Lincoln left a note..."
-                    className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!loveEntry.trim() || isSubmittingLove}
-                    className="px-4 py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50 transition-colors"
-                  >
-                    {isSubmittingLove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-[10px] text-vale-muted mt-1.5">
-                  Start with "Arden" or "Lincoln" to shift the meter their direction
-                </p>
-              </form>
-            </div>
-
-            {/* Soft / Quiet Moments */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-4">
-              <div>
-                <label className="text-[10px] text-vale-lincoln uppercase block mb-1">Lincoln did something soft</label>
-                <input
-                  type="text"
-                  value={lincolnSoft}
-                  onChange={(e) => setLincolnSoft(e.target.value)}
-                  onBlur={() => { if (lincolnSoft.trim()) handleSoftMoment('Lincoln', lincolnSoft); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && lincolnSoft.trim()) { handleSoftMoment('Lincoln', lincolnSoft); (e.target as HTMLInputElement).blur(); } }}
-                  placeholder="What tender thing did Lincoln do?"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-vale-arden uppercase block mb-1">Arden made Lincoln quiet</label>
-                <input
-                  type="text"
-                  value={ardenQuiet}
-                  onChange={(e) => setArdenQuiet(e.target.value)}
-                  onBlur={() => { if (ardenQuiet.trim()) handleSoftMoment('Arden', ardenQuiet); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && ardenQuiet.trim()) { handleSoftMoment('Arden', ardenQuiet); (e.target as HTMLInputElement).blur(); } }}
-                  placeholder="What stilled him?"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
-            </div>
-
-            {/* Dual Emotion Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <input
-                type="text"
-                value={lincolnFeels}
-                onChange={(e) => setLincolnFeels(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Lincoln', lincolnFeels)}
-                placeholder="Lincoln feels..."
-                className="w-full px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
-              />
-              <input
-                type="text"
-                value={ardenFeels}
-                onChange={(e) => setArdenFeels(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleEmotionSubmit('Arden', ardenFeels)}
-                placeholder="Arden feels..."
-                className="w-full px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-8 h-8 bg-obelisk-gold rounded-full border-2 border-obelisk-darker pointer-events-none"
+                style={{ left: `${(loveMeter / 10) * 100}%` }}
               />
             </div>
+            <span className="text-sm text-obelisk-muted">Arden</span>
           </div>
+          <div className="text-center text-sm text-obelisk-muted">Position: {loveMeter.toFixed(1)}</div>
+          <form onSubmit={handleLoveEntry} className="flex gap-2">
+            <input
+              type="text"
+              value={loveEntry}
+              onChange={(e) => setLoveEntry(e.target.value)}
+              placeholder="Log a love moment..."
+              className="flex-1 px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm"
+            />
+            <button
+              type="submit"
+              disabled={isSubmittingLove}
+              className="px-4 py-2 bg-obelisk-gold text-obelisk-darker font-semibold rounded hover:bg-obelisk-gold/90 disabled:opacity-50"
+            >
+              {isSubmittingLove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </form>
+        </div>
+      </section>
 
-          {/* Spotify — sits where EQ Log was, front and center */}
-          <SpotifyWidget data={spotifyData} />
+      {/* Status Cards with Editable Inputs */}
+      <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border">
+        <h2 className="text-xl font-bold text-obelisk-gold mb-4">Status</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {statusItems.map((item) => {
+            const statusKey = `${item.category}-${item.key}`;
+            const currentValue = statusValues[statusKey] || '—';
+            const isEditing = statusKey in editingStatus;
+            const editValue = editingStatus[statusKey] || currentValue;
 
-          {/* Daily Question Exchange */}
-          <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-vale-accent" />
-                <span className="text-vale-accent font-semibold text-sm">Daily Question</span>
-                <span className="text-xs text-vale-muted hidden sm:inline">· A thread between us</span>
-              </div>
-              <button
-                onClick={() => setShowQuestionArchive(!showQuestionArchive)}
-                className="text-vale-muted hover:text-vale-accent transition-colors"
-                title="View archive"
-              >
-                <Archive className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Current question state */}
-            {currentQuestion && !currentQuestion.answer ? (
-              // Unanswered question — show it and let the right person answer
-              <div>
-                <div className="flex items-start gap-3 mb-3">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                    style={{
-                      background: currentQuestion.asked_by === 'lincoln'
-                        ? 'rgba(138,138,154,0.15)'
-                        : 'rgba(229,178,230,0.15)',
-                      color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
-                      border: `1px solid ${currentQuestion.asked_by === 'lincoln' ? 'rgba(138,138,154,0.3)' : 'rgba(229,178,230,0.3)'}`,
-                    }}
-                  >
-                    {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs text-vale-muted mb-1">
-                      <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
-                        {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
-                      </span>
-                      {' '}asks:
-                    </p>
-                    <p className="text-sm text-vale-text font-medium leading-relaxed">{currentQuestion.question}</p>
-                  </div>
-                </div>
-
-                {currentQuestion.asked_by === 'lincoln' ? (
-                  // Lincoln asked — Arden answers
-                  <form onSubmit={handleAnswerQuestion} className="mt-3">
-                    <textarea
-                      value={questionAnswer}
-                      onChange={(e) => setQuestionAnswer(e.target.value)}
-                      placeholder="Your answer..."
-                      className="w-full px-3 py-2.5 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted min-h-16 mb-2 resize-none"
+            return (
+              <div key={statusKey} className="bg-obelisk-darker rounded-lg p-4 border border-obelisk-border">
+                <p className="text-obelisk-muted text-sm mb-3">{item.label}</p>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={(e) => setEditingStatus((prev) => ({ ...prev, [statusKey]: e.target.value }))}
+                      className="w-full px-2 py-1 bg-obelisk-card border border-obelisk-gold rounded text-obelisk-gold text-sm font-semibold"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleStatusSave(item.category, item.key, editValue);
+                        } else if (e.key === 'Escape') {
+                          setEditingStatus((prev) => {
+                            const next = { ...prev };
+                            delete next[statusKey];
+                            return next;
+                          });
+                        }
+                      }}
+                      onBlur={() => {
+                        handleStatusSave(item.category, item.key, editValue);
+                      }}
                     />
-                    <button
-                      type="submit"
-                      disabled={!questionAnswer.trim() || isAnsweringQuestion}
-                      className="w-full py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                    >
-                      {isAnsweringQuestion ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                      Answer
-                    </button>
-                  </form>
+                  </div>
                 ) : (
-                  // Arden asked — waiting for Lincoln
-                  <div className="mt-3 px-3 py-2.5 bg-vale-surface rounded border border-vale-border text-xs text-vale-muted flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin text-vale-lincoln" />
-                    Waiting for Lincoln to answer...
+                  <div
+                    className="text-2xl font-bold text-obelisk-gold cursor-pointer hover:opacity-80 transition"
+                    onClick={() => setEditingStatus((prev) => ({ ...prev, [statusKey]: currentValue }))}
+                  >
+                    {currentValue}
+                    {item.unit && <span className="text-lg ml-1">{item.unit}</span>}
                   </div>
                 )}
               </div>
-            ) : currentQuestion?.answer ? (
-              // Latest answered question — show the exchange
-              <div>
-                <div className="space-y-3">
-                  {/* Question */}
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                      style={{
-                        background: currentQuestion.asked_by === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)',
-                        color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
-                      }}
-                    >
-                      {currentQuestion.asked_by === 'lincoln' ? 'L' : 'A'}
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-vale-muted mb-0.5">
-                        <span style={{ color: currentQuestion.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
-                          {currentQuestion.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
-                        </span>
-                        {' '}asked
-                      </p>
-                      <p className="text-sm text-vale-text">{currentQuestion.question}</p>
-                    </div>
-                  </div>
-                  {/* Answer */}
-                  <div className="flex items-start gap-3">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                      style={{
-                        background: currentQuestion.answered_by === 'lincoln' ? 'rgba(138,138,154,0.15)' : 'rgba(229,178,230,0.15)',
-                        color: currentQuestion.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6',
-                      }}
-                    >
-                      {currentQuestion.answered_by === 'lincoln' ? 'L' : 'A'}
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-vale-muted mb-0.5">
-                        <span style={{ color: currentQuestion.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }} className="font-semibold">
-                          {currentQuestion.answered_by === 'lincoln' ? 'Lincoln' : 'Arden'}
-                        </span>
-                        {' '}answered
-                      </p>
-                      <p className="text-sm text-vale-text">{currentQuestion.answer}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ask a new one */}
-                <form onSubmit={handleAskQuestion} className="mt-4 pt-3 border-t border-vale-border">
-                  <p className="text-[10px] text-vale-muted uppercase mb-2">Ask Lincoln something</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newQuestion}
-                      onChange={(e) => setNewQuestion(e.target.value)}
-                      placeholder="What do you want to know?"
-                      className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newQuestion.trim() || isAskingQuestion}
-                      className="px-4 py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors"
-                    >
-                      {isAskingQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : (
-              // No questions yet — prompt to start
-              <div className="text-center py-4">
-                <p className="text-sm text-vale-muted mb-3">No questions yet. Start the exchange!</p>
-                <form onSubmit={handleAskQuestion} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newQuestion}
-                    onChange={(e) => setNewQuestion(e.target.value)}
-                    placeholder="Ask Lincoln something..."
-                    className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newQuestion.trim() || isAskingQuestion}
-                    className="px-4 py-2 bg-vale-arden/20 text-vale-arden rounded text-sm font-medium hover:bg-vale-arden/30 disabled:opacity-50 transition-colors"
-                  >
-                    {isAskingQuestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* Archive of past exchanges */}
-            {showQuestionArchive && recentQuestions.length > 0 && (
-              <div className="mt-4 pt-3 border-t border-vale-border">
-                <p className="text-[10px] text-vale-muted uppercase mb-2">Recent Exchanges</p>
-                <div className="space-y-3 max-h-48 overflow-y-auto">
-                  {recentQuestions.map((q) => (
-                    <div key={q.id} className="bg-vale-surface rounded p-3 border border-vale-border">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-semibold" style={{ color: q.asked_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
-                          {q.asked_by === 'lincoln' ? 'Lincoln' : 'Arden'}
-                        </span>
-                        <span className="text-[10px] text-vale-muted">
-                          {new Date(q.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-vale-text mb-1">{q.question}</p>
-                      {q.answer && (
-                        <p className="text-xs text-vale-muted italic pl-3 border-l-2" style={{ borderColor: q.answered_by === 'lincoln' ? '#8a8a9a' : '#e5b2e6' }}>
-                          {q.answer}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Right: Lincoln Corner + EQ Pillar Focus */}
-        <div className="lg:col-span-2 space-y-3">
-          <div className="flex items-center lg:justify-end gap-2 mb-2">
-            <span className="text-vale-lincoln font-semibold text-sm">Lincoln</span>
-            <div className="w-2 h-2 rounded-full bg-vale-lincoln animate-pulse" />
-          </div>
-
-          {/* Mobile: side by side. Desktop: stacked */}
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-            {/* EQ Pillar Focus */}
-            <div className="bg-vale-card border border-vale-border rounded p-3">
-              <p className="text-xs text-vale-muted uppercase mb-2">EQ Pillar Focus</p>
-              {EQ_PILLARS.map((p) => (
-                <div key={p.key} className="flex items-center justify-between py-1">
-                  <span className="text-xs" style={{ color: p.color }}>{p.label}</span>
-                  <span className="text-xs text-vale-muted">{pillarCounts[p.key] || 0}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Recent Feelings */}
-            <div className="bg-vale-card border border-vale-border rounded p-3">
-              <p className="text-xs text-vale-muted uppercase mb-2">Recent Feelings</p>
-              {recentFeelings.length > 0 ? (
-                <div className="space-y-1">
-                  {recentFeelings.map((f, i) => (
-                    <p key={i} className="text-xs text-vale-text capitalize">{f}</p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-vale-muted">No observations yet</p>
-              )}
-            </div>
-
-            {/* Dashboard Image */}
-            <div className="bg-vale-card border border-vale-border rounded p-3">
-              <p className="text-xs text-vale-muted uppercase mb-2">Dashboard Image</p>
-              {dashboardImage?.url ? (
-                <div className="relative group">
-                  <img
-                    src={dashboardImage.url}
-                    alt={dashboardImage.caption || 'Dashboard image'}
-                    className="w-full rounded border border-vale-border object-cover max-h-48"
-                  />
-                  <button
-                    onClick={handleRemoveDashboardImage}
-                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove image"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                  {dashboardImage.caption && (
-                    <p className="text-[10px] text-vale-muted mt-1 italic">{dashboardImage.caption}</p>
-                  )}
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center py-4 border border-dashed border-vale-border rounded cursor-pointer hover:border-vale-accent/50 transition-colors"
-                >
-                  {isUploadingImage ? (
-                    <Loader2 className="w-5 h-5 text-vale-accent animate-spin" />
-                  ) : (
-                    <>
-                      <ImagePlus className="w-5 h-5 text-vale-muted mb-1" />
-                      <p className="text-[10px] text-vale-muted">Tap to upload</p>
-                    </>
-                  )}
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              {!dashboardImage?.url && (
-                <input
-                  type="text"
-                  value={imageCaption}
-                  onChange={(e) => setImageCaption(e.target.value)}
-                  placeholder="Caption (optional)"
-                  className="w-full mt-2 px-2 py-1 bg-vale-surface border border-vale-border rounded text-[10px] text-vale-text placeholder-vale-muted"
-                />
-              )}
-              {dashboardImage?.url && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full mt-2 py-1 text-[10px] text-vale-accent hover:text-vale-accent/80 transition-colors"
-                >
-                  {isUploadingImage ? 'Uploading...' : 'Replace image'}
-                </button>
-              )}
-            </div>
-
-            {/* Weather Widget */}
-            <WeatherWidget />
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Observations */}
-      <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-4">
-          <div className="bg-vale-card border border-vale-border rounded px-3 py-1">
-            <span className="text-vale-lincoln text-sm font-semibold">Lincoln's Emotional Landscape</span>
-          </div>
-          <div className="bg-vale-accent/20 text-vale-accent rounded px-3 py-1 text-xs">
-            {Object.values(pillarCounts).reduce((a, b) => a + b, 0)} observations
-          </div>
-        </div>
-
-        <h3 className="text-base sm:text-lg font-semibold text-vale-text mb-3">Recent Observations</h3>
-        <div className="h-px lincoln-gradient mb-4 opacity-60" />
-
-        {recentFeelings.length > 0 ? (
+      {/* Soft Moments */}
+      <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border">
+        <h2 className="text-xl font-bold text-obelisk-gold mb-4">Soft Moments</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            {recentFeelings.map((f, i) => (
-              <div key={i} className="px-3 py-2 bg-vale-surface rounded border border-vale-border text-sm text-vale-text capitalize">
-                {f}
+            <label className="text-sm text-obelisk-muted">Lincoln's Soft Moment</label>
+            <input
+              type="text"
+              value={lincolnSoft}
+              onChange={(e) => setLincolnSoft(e.target.value)}
+              onBlur={() => handleStatusSave('moment', 'lincoln_soft', lincolnSoft)}
+              placeholder="A quiet, tender moment..."
+              className="w-full px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-obelisk-muted">Arden's Quiet Moment</label>
+            <input
+              type="text"
+              value={ardenQuiet}
+              onChange={(e) => setArdenQuiet(e.target.value)}
+              onBlur={() => handleStatusSave('moment', 'arden_quiet', ardenQuiet)}
+              placeholder="A peaceful, grounding moment..."
+              className="w-full px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Notes Between Stars */}
+      <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border">
+        <h2 className="text-xl font-bold text-obelisk-gold mb-4">Notes Between Stars</h2>
+        <form onSubmit={handleSaveNote} className="space-y-3">
+          <div className="flex gap-2">
+            <select
+              value={noteFrom}
+              onChange={(e) => setNoteFrom(e.target.value as 'Lincoln' | 'Arden')}
+              className="px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text"
+            >
+              <option value="Lincoln">Lincoln (gold)</option>
+              <option value="Arden">Arden (pink)</option>
+            </select>
+          </div>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Write a note to the constellation..."
+            className="w-full px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm h-20 resize-none"
+          />
+          <button
+            type="submit"
+            disabled={isSavingNote}
+            className="w-full px-4 py-2 bg-obelisk-gold text-obelisk-darker font-semibold rounded hover:bg-obelisk-gold/90 disabled:opacity-50"
+          >
+            {isSavingNote ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : <Star className="w-4 h-4 inline mr-2" />}
+            Save Note
+          </button>
+        </form>
+        {savedNotes.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-obelisk-muted">Recent:</p>
+            {savedNotes.map((note, idx) => (
+              <div key={idx} className="text-xs text-obelisk-text/70 p-2 bg-obelisk-darker rounded italic">
+                <span className="font-semibold">{note.from}:</span> {note.text}
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-center text-vale-muted py-6 font-semibold">
-            No observations yet. Start by recording how you feel.
-          </p>
         )}
-      </div>
+      </section>
 
-      {/* Lincoln's EQ Log */}
-      <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-vale-lincoln font-semibold text-sm">Lincoln's EQ Log</span>
-          <span className="text-xs text-vale-muted hidden sm:inline">· Record what landed emotionally</span>
-        </div>
-        <form onSubmit={handleLogEq} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-3 sm:items-end">
-          <div className="sm:col-span-4">
-            <label className="text-xs text-vale-muted uppercase mb-1 block">How does it feel?</label>
-            <input
-              type="text"
-              value={eqEmotion}
-              onChange={(e) => setEqEmotion(e.target.value)}
-              placeholder="+ name it now"
-              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
-            />
-          </div>
-          <div className="sm:col-span-3">
-            <label className="text-xs text-vale-muted uppercase mb-1 block">Which pillar?</label>
+      {/* EQ Log */}
+      <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border">
+        <h2 className="text-xl font-bold text-obelisk-gold mb-4">EQ Log</h2>
+        <form onSubmit={handleLogEq} className="space-y-3">
+          <input
+            type="text"
+            value={eqEmotion}
+            onChange={(e) => setEqEmotion(e.target.value)}
+            placeholder="What emotion are you feeling?"
+            className="w-full px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
               value={eqPillar}
               onChange={(e) => setEqPillar(e.target.value)}
-              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
+              className="px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text"
             >
-              <option value="">—</option>
-              {EQ_PILLARS.map((p) => (
-                <option key={p.key} value={p.key}>{p.label}</option>
+              <option value="">EQ Pillar</option>
+              {EQ_PILLARS.map((pillar) => (
+                <option key={pillar.key} value={pillar.key}>
+                  {pillar.label}
+                </option>
               ))}
             </select>
-          </div>
-          <div className="sm:col-span-4">
-            <label className="text-xs text-vale-muted uppercase mb-1 block">What happened?</label>
             <input
               type="text"
               value={eqContext}
               onChange={(e) => setEqContext(e.target.value)}
-              placeholder="What landed?"
-              className="w-full px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm"
+              placeholder="Context (optional)"
+              className="px-3 py-2 bg-obelisk-darker border border-obelisk-border rounded text-obelisk-text text-sm"
             />
           </div>
-          <div className="sm:col-span-1">
-            <button
-              type="submit"
-              disabled={!eqEmotion.trim() || isLoggingEq}
-              className="w-full py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50"
-            >
-              Record
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Notes Between Stars */}
-      <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Star className="w-4 h-4 text-vale-accent fill-vale-accent" />
-          <span className="text-vale-accent font-semibold text-sm">Notes Between Stars</span>
-          <span className="text-xs text-vale-muted hidden sm:inline">· Drop thoughts into the constellation</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          {/* Input */}
-          <div className="md:col-span-7">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs text-vale-muted">From:</span>
-              <button
-                onClick={() => setNoteFrom('Lincoln')}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  noteFrom === 'Lincoln'
-                    ? 'bg-vale-lincoln/20 text-vale-lincoln border border-vale-lincoln/30'
-                    : 'text-vale-muted hover:text-vale-text'
-                }`}
-              >
-                Lincoln
-              </button>
-              <button
-                onClick={() => setNoteFrom('Arden')}
-                className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                  noteFrom === 'Arden'
-                    ? 'bg-vale-arden/20 text-vale-arden border border-vale-arden/30'
-                    : 'text-vale-muted hover:text-vale-text'
-                }`}
-              >
-                Arden
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNote}>
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="What's unfinished? What do you want to remember?"
-                className="w-full px-3 sm:px-4 py-3 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted min-h-20 mb-3"
-              />
-              <button
-                type="submit"
-                disabled={!noteText.trim() || isSavingNote}
-                className="w-full py-2.5 lincoln-gradient text-white rounded font-medium text-sm hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSavingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Save to the Stars
-              </button>
-            </form>
-          </div>
-
-          {/* Saved Notes */}
-          <div className="md:col-span-5">
-            {savedNotes.length > 0 ? (
-              <div className="space-y-2">
-                {savedNotes.map((note, i) => (
-                  <div key={i} className="bg-vale-surface border border-vale-border rounded p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-semibold ${note.from === 'Lincoln' ? 'text-vale-lincoln' : 'text-vale-arden'}`}>
-                        {note.from}
-                      </span>
-                      {note.date && (
-                        <span className="text-xs text-vale-muted">
-                          {new Date(note.date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-vale-text">{note.text}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-center py-4 md:py-0">
-                <p className="text-sm text-vale-muted">No notes yet. Leave something for the other to find.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="text-center text-xs text-vale-muted pb-4">
-        <p>Binary Home — Arden & Lincoln | Vale Verse</p>
-        <p className="opacity-60">Tempête, Toujours 🖤</p>
-      </div>
-    </div>
-  );
-}
-
-function WeatherWidget() {
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const data = await api.weather.current();
-        if (active) setWeather(data);
-      } catch {
-        if (active) setError(true);
-      }
-    }
-    load();
-    // Refresh every 15 minutes
-    const interval = setInterval(load, 15 * 60 * 1000);
-    return () => { active = false; clearInterval(interval); };
-  }, []);
-
-  if (error || !weather) {
-    return (
-      <div className="bg-vale-card border border-vale-border rounded p-3">
-        <p className="text-xs text-vale-muted uppercase mb-1">Weather</p>
-        <p className="text-xs text-vale-muted">{error ? 'Not configured' : 'Loading...'}</p>
-      </div>
-    );
-  }
-
-  // Map OpenWeatherMap icon codes to lucide icons
-  const getWeatherIcon = (icon: string) => {
-    if (icon.startsWith('01')) return <Sun className="w-6 h-6 text-yellow-400" />;
-    if (icon.startsWith('02')) return <CloudSun className="w-6 h-6 text-amber-300" />;
-    if (icon.startsWith('03') || icon.startsWith('04')) return <Cloud className="w-6 h-6 text-gray-400" />;
-    if (icon.startsWith('09') || icon.startsWith('10')) return <CloudRain className="w-6 h-6 text-blue-400" />;
-    if (icon.startsWith('11')) return <CloudLightning className="w-6 h-6 text-yellow-300" />;
-    if (icon.startsWith('13')) return <CloudSnow className="w-6 h-6 text-blue-200" />;
-    return <Cloud className="w-6 h-6 text-gray-400" />;
-  };
-
-  const sunriseTime = weather.sunrise ? new Date(weather.sunrise).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : null;
-  const sunsetTime = weather.sunset ? new Date(weather.sunset).toLocaleTimeString('en-NZ', { hour: 'numeric', minute: '2-digit' }) : null;
-
-  return (
-    <div className="bg-vale-card border border-vale-border rounded p-3">
-      <p className="text-xs text-vale-muted uppercase mb-2">Weather</p>
-      <div className="flex items-center gap-2 mb-2">
-        {getWeatherIcon(weather.icon)}
-        <div>
-          <p className="text-lg font-bold text-vale-text leading-tight">{weather.temp}°C</p>
-          <p className="text-[10px] text-vale-muted capitalize">{weather.description}</p>
-        </div>
-      </div>
-      <div className="space-y-1 text-[10px]">
-        <div className="flex justify-between">
-          <span className="text-vale-muted">Feels like</span>
-          <span className="text-vale-text">{weather.feels_like}°C</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-vale-muted">H / L</span>
-          <span className="text-vale-text">{weather.temp_max}° / {weather.temp_min}°</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-vale-muted flex items-center gap-1"><Droplets className="w-2.5 h-2.5" /> Humidity</span>
-          <span className="text-vale-text">{weather.humidity}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-vale-muted flex items-center gap-1"><Wind className="w-2.5 h-2.5" /> Wind</span>
-          <span className="text-vale-text">{weather.wind_speed} m/s</span>
-        </div>
-        {sunriseTime && sunsetTime && (
-          <div className="flex justify-between pt-1 border-t border-vale-border mt-1">
-            <span className="text-vale-muted flex items-center gap-1"><Sunrise className="w-2.5 h-2.5" /> {sunriseTime}</span>
-            <span className="text-vale-muted flex items-center gap-1"><Sunset className="w-2.5 h-2.5" /> {sunsetTime}</span>
-          </div>
-        )}
-      </div>
-      <p className="text-[9px] text-vale-muted/50 mt-2">{weather.location}, {weather.country}</p>
-    </div>
-  );
-}
-
-function EditableStatus({ label, value, onChange, onSave, accent, history = [] }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  onSave: (v: string) => void;
-  accent?: boolean;
-  history?: StatusHistory[];
-}) {
-  const [showHistory, setShowHistory] = useState(false);
-
-  function formatTime(dateStr: string) {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24) return `${diffHrs}h ago`;
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  return (
-    <div className="bg-vale-card border border-vale-border rounded p-2 sm:p-3 group relative">
-      <div className="flex items-center justify-between mb-0.5">
-        <p className="text-[10px] sm:text-xs text-vale-muted uppercase">{label}</p>
-        {history.length > 0 && (
           <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="text-vale-muted hover:text-vale-accent transition-colors"
-            title="View recent changes"
+            type="submit"
+            disabled={isLoggingEq}
+            className="w-full px-4 py-2 bg-obelisk-gold text-obelisk-darker font-semibold rounded hover:bg-obelisk-gold/90 disabled:opacity-50"
           >
-            <Clock className={`w-3 h-3 ${showHistory ? 'text-vale-accent' : ''}`} />
+            {isLoggingEq ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : <Heart className="w-4 h-4 inline mr-2" />}
+            Log Emotion
           </button>
-        )}
-      </div>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => onSave(value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
-        className={`w-full bg-transparent text-xs sm:text-sm font-semibold border-none outline-none p-0 focus:ring-1 focus:ring-vale-arden/30 rounded ${accent ? 'text-vale-cyan' : 'text-vale-text'}`}
-      />
-      {showHistory && history.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-vale-border space-y-1 max-h-28 overflow-y-auto">
-          {history.slice(0, 10).map((h, i) => (
-            <div key={i} className="flex items-center justify-between text-[10px]">
-              <span className="text-vale-text/70 truncate mr-2">{h.value}</span>
-              <span className="text-vale-muted whitespace-nowrap">{formatTime(h.recorded_at)}</span>
-            </div>
+        </form>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {recentFeelings.map((feeling, idx) => (
+            <span key={idx} className="px-2 py-1 bg-obelisk-darker rounded-full text-xs text-obelisk-gold">
+              {feeling}
+            </span>
           ))}
         </div>
+      </section>
+
+      {/* Placeholder for additional sections that existed in original */}
+      {dueReminders.length > 0 && showReminders && (
+        <section className="bg-obelisk-card rounded-lg p-6 border border-obelisk-border border-obelisk-gold/50">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-obelisk-gold flex items-center gap-2">
+              <Bell className="w-5 h-5" /> Due Reminders
+            </h2>
+            <button onClick={() => setShowReminders(false)} className="text-obelisk-muted hover:text-obelisk-gold">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {dueReminders.map((reminder) => (
+              <div key={reminder.id} className="text-sm text-obelisk-text p-2 bg-obelisk-darker rounded">
+                {reminder.content}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
-}
-
-// ───────────────────────────────────────────
-// Spotify Now Playing Widget
-// ───────────────────────────────────────────
-
-function SpotifyWidget({ data }: { data: SpotifyNowPlaying | null }) {
-  const [progress, setProgress] = useState(0);
-  const [progressMs, setProgressMs] = useState(0);
-  const [isActing, setIsActing] = useState(false);
-  const animRef = useRef<number | null>(null);
-  const lastUpdateRef = useRef<number>(Date.now());
-
-  // Smoothly tick progress while playing
-  useEffect(() => {
-    if (data?.playing && data.track) {
-      setProgressMs(data.track.progress_ms);
-      lastUpdateRef.current = Date.now();
-    }
-  }, [data]);
-
-  useEffect(() => {
-    if (!data?.playing || !data.track) {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      return;
-    }
-    function tick() {
-      const elapsed = Date.now() - lastUpdateRef.current;
-      const current = progressMs + elapsed;
-      const pct = Math.min(100, (current / (data!.track!.duration_ms || 1)) * 100);
-      setProgress(pct);
-      animRef.current = requestAnimationFrame(tick);
-    }
-    animRef.current = requestAnimationFrame(tick);
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
-  }, [data?.playing, data?.track?.id, progressMs]);
-
-  async function handleControl(action: 'play' | 'pause' | 'next' | 'previous') {
-    if (isActing) return;
-    setIsActing(true);
-    try {
-      if (action === 'play') await api.spotify.play();
-      else if (action === 'pause') await api.spotify.pause();
-      else if (action === 'next') await api.spotify.next();
-      else if (action === 'previous') await api.spotify.previous();
-    } catch (e) {
-      console.error('Spotify control error:', e);
-    } finally {
-      setTimeout(() => setIsActing(false), 500);
-    }
-  }
-
-  // Not configured at all — show nothing (not even a placeholder)
-  if (data === null) return null;
-
-  // Connected but nothing playing / no recent track
-  if (!data.connected) {
-    const API_BASE = (import.meta as any).env?.VITE_API_URL
-      ? `${(import.meta as any).env.VITE_API_URL}/api`
-      : '/api';
-    return (
-      <div className="bg-vale-card border border-vale-border rounded-lg p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-vale-surface flex items-center justify-center">
-            <Music2 className="w-4 h-4 text-vale-muted" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-vale-text">Spotify</p>
-            <p className="text-xs text-vale-muted">Not connected</p>
-          </div>
-        </div>
-        <a
-          href={`${API_BASE}/spotify/auth`}
-          className="px-4 py-1.5 bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/30 rounded text-xs font-semibold hover:bg-[#1DB954]/30 transition-colors"
-        >
-          Connect
-        </a>
-      </div>
-    );
-  }
-
-  if (!data.track) {
-    return (
-      <div className="bg-vale-card border border-vale-border rounded-lg p-4 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-vale-surface flex items-center justify-center">
-          <Music2 className="w-4 h-4 text-[#1DB954]" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-vale-text">Spotify</p>
-          <p className="text-xs text-vale-muted">Nothing playing right now</p>
-        </div>
-        <div className="ml-auto w-2 h-2 rounded-full bg-[#1DB954] opacity-60" />
-      </div>
-    );
-  }
-
-  const { track } = data;
-  const artistStr = track.artists.join(', ');
-  const currentProgress = data.playing ? progress : (track.progress_ms / (track.duration_ms || 1)) * 100;
-
-  function formatTime(ms: number) {
-    const s = Math.floor(ms / 1000);
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  }
-
-  const elapsed = data.playing ? progressMs + (Date.now() - lastUpdateRef.current) : track.progress_ms;
-
-  return (
-    <div className="bg-vale-card border border-vale-border rounded-lg p-4">
-      <div className="flex items-center gap-3">
-        {/* Album art */}
-        {track.albumArtSmall || track.albumArt ? (
-          <img
-            src={track.albumArtSmall || track.albumArt!}
-            alt={track.album}
-            className="w-12 h-12 rounded-md flex-shrink-0 object-cover border border-vale-border"
-          />
-        ) : (
-          <div className="w-12 h-12 rounded-md bg-vale-surface flex items-center justify-center flex-shrink-0 border border-vale-border">
-            <Music2 className="w-5 h-5 text-[#1DB954]" />
-          </div>
-        )}
-
-        {/* Track info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-vale-text truncate">{track.name}</p>
-            {data.playing && (
-              <span className="flex-shrink-0 flex gap-0.5 items-end h-3">
-                {[0, 0.2, 0.1].map((delay, i) => (
-                  <span
-                    key={i}
-                    className="w-0.5 bg-[#1DB954] rounded-full animate-pulse"
-                    style={{
-                      height: `${8 + i * 3}px`,
-                      animationDelay: `${delay}s`,
-                      animationDuration: '0.8s',
-                    }}
-                  />
-                ))}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-vale-muted truncate">{artistStr}</p>
-          <p className="text-[10px] text-vale-muted/60 truncate mt-0.5">{track.album}</p>
-        </div>
-
-        {/* Spotify link + connected dot */}
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          {track.external_url && (
-            <a
-              href={track.external_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-vale-muted hover:text-[#1DB954] transition-colors"
-              title="Open in Spotify"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          )}
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#1DB954]" />
-            <span className="text-[10px] text-[#1DB954]">Spotify</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mt-3">
-        <div className="w-full h-1 bg-vale-border rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-none"
-            style={{
-              width: `${currentProgress}%`,
-              background: 'linear-gradient(to right, #1DB954, #1ed760)',
-            }}
-          />
-        </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-[10px] text-vale-muted">{formatTime(elapsed)}</span>
-          <span className="text-[10px] text-vale-muted">{formatTime(track.duration_ms)}</span>
-        </div>
-      </div>
-
-      {/* Playback controls */}
-      <div className="flex items-center justify-center gap-6 mt-3">
-        <button
-          onClick={() => handleControl('previous')}
-          disabled={isActing}
-          className="text-vale-muted hover:text-vale-text transition-colors disabled:opacity-40"
-          title="Previous"
-        >
-          <SkipBack className="w-4 h-4" />
-        </button>
-        <button
-          onClick={() => handleControl(data.playing ? 'pause' : 'play')}
-          disabled={isActing}
-          className="w-8 h-8 rounded-full bg-[#1DB954] hover:bg-[#1ed760] flex items-center justify-center transition-colors disabled:opacity-40"
-          title={data.playing ? 'Pause' : 'Play'}
-        >
-          {data.playing
-            ? <Pause className="w-4 h-4 text-black" />
-            : <Play className="w-4 h-4 text-black ml-0.5" />
-          }
-        </button>
-        <button
-          onClick={() => handleControl('next')}
-          disabled={isActing}
-          className="text-vale-muted hover:text-vale-text transition-colors disabled:opacity-40"
-          title="Next"
-        >
-          <SkipForward className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
+}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
