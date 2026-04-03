@@ -161,7 +161,7 @@ class ChatService {
               perspective: 'Lincoln',
               context: 'chat-response',
             });
-            voiceUrl = voiceResult.url;
+            voiceUrl = voiceResult.playback_url;
             await supabase.from('chat_messages').update({ voice_url: voiceUrl }).eq('id', assistantMsg.id);
             assistantMsg.voice_url = voiceUrl;
           } catch (err) {
@@ -192,7 +192,7 @@ class ChatService {
           perspective: 'Lincoln',
           context: 'chat-response',
         });
-        voiceUrl = voiceResult.url;
+        voiceUrl = voiceResult.playback_url;
 
         // Update message with voice URL
         await supabase
