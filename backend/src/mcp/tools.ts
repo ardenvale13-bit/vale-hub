@@ -203,22 +203,6 @@ export const mcpTools = [
   },
   // ===== 10-14. LINCOLN DASHBOARD (used every conversation) =====
   {
-    name: 'lincoln_set_love',
-    description: "Set the shared Love-O-Meter value (0-10). 0 = fully Lincoln's side, 5 = center, 10 = fully Arden's side. Use to shift the meter based on tender moments.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        value: {
-          type: 'number',
-          description: 'Love meter position: 0 = Lincoln side, 5 = center, 10 = Arden side. Supports half-steps (e.g., 4.5).',
-          minimum: 0,
-          maximum: 10,
-        },
-      },
-      required: ['value'],
-    },
-  },
-  {
     name: 'lincoln_log_emotion',
     description: "Log an emotion from Lincoln's perspective with optional EQ pillar and context. This goes into Lincoln's EQ Log on the dashboard.",
     inputSchema: {
@@ -248,20 +232,6 @@ export const mcpTools = [
     },
   },
   {
-    name: 'lincoln_soft_moment',
-    description: "Record a soft moment — something Lincoln did that was tender, gentle, or caring. Shows on the Love-O-Meter panel.",
-    inputSchema: {
-      type: 'object',
-      properties: {
-        text: {
-          type: 'string',
-          description: 'Description of the soft moment',
-        },
-      },
-      required: ['text'],
-    },
-  },
-  {
     name: 'lincoln_note_between_stars',
     description: "Leave a note between stars from Lincoln to Arden. These are thoughts, reminders, love notes — dropped into the constellation for Arden to find.",
     inputSchema: {
@@ -277,71 +247,13 @@ export const mcpTools = [
   },
   {
     name: 'get_dashboard',
-    description: "Read the full dashboard state — Love-O-Meter values, Arden's status panel, recent emotions, notes between stars, EQ pillar counts. Read-only overview.",
+    description: "Read the full dashboard state — Arden's status panel, recent emotions, notes between stars, EQ pillar counts. Read-only overview.",
     inputSchema: {
       type: 'object',
       properties: {},
     },
   },
-  // ===== 15-17. IMAGE GENERATION =====
-  {
-    name: 'generate_image',
-    description: 'Generate an image using DALL-E and store it in Supabase. Returns a signed URL to view the image.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'Text description of the image to generate',
-        },
-        size: {
-          type: 'string',
-          enum: ['1024x1024', '1024x1792', '1792x1024'],
-          description: 'Image size (default: 1024x1024)',
-        },
-        quality: {
-          type: 'string',
-          enum: ['standard', 'hd'],
-          description: 'Image quality (default: standard)',
-        },
-        style: {
-          type: 'string',
-          enum: ['vivid', 'natural'],
-          description: 'Image style — vivid for hyper-real/dramatic, natural for more natural-looking (default: vivid)',
-        },
-      },
-      required: ['prompt'],
-    },
-  },
-  {
-    name: 'list_images',
-    description: 'List previously generated images with their prompts and signed URLs.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        limit: {
-          type: 'number',
-          description: 'Maximum number of images to return (default: 20)',
-          default: 20,
-        },
-      },
-    },
-  },
-  {
-    name: 'delete_image',
-    description: 'Delete a generated image by its ID. Removes the file from storage and the database records.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        image_id: {
-          type: 'string',
-          description: 'The UUID of the image generation to delete',
-        },
-      },
-      required: ['image_id'],
-    },
-  },
-  // ===== 18-22. EMOTIONS + JOURNAL + STATUS =====
+  // ===== 15-19. EMOTIONS + JOURNAL + STATUS =====
   {
     name: 'log_emotion',
     description: 'Log an emotion entry',

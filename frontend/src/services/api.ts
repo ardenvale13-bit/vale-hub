@@ -301,58 +301,6 @@ const voice = {
     apiCall<Voice[]>('/voice/voices'),
 };
 
-// ===== IMAGES =====
-export interface GeneratedImage {
-  id: string;
-  prompt: string;
-  model: string;
-  url?: string;
-  media_id?: string;
-  settings: {
-    size?: string;
-    quality?: string;
-    style?: string;
-    revised_prompt?: string;
-  };
-  created_at: string;
-  media?: {
-    id: string;
-    file_path: string;
-    file_name: string;
-    file_size_bytes?: number;
-  };
-}
-
-export interface DashboardImage {
-  url: string;
-  caption?: string;
-  uploaded_at: string;
-  id: string;
-}
-
-const images = {
-  generate: (prompt: string, options?: { size?: string; quality?: string; style?: string }) =>
-    apiCall<GeneratedImage>('/images/generate', 'POST', { prompt, ...options }),
-
-  list: (limit?: number) =>
-    apiCall<GeneratedImage[]>(`/images?limit=${limit || 20}`),
-
-  get: (id: string) =>
-    apiCall<GeneratedImage>(`/images/${id}`),
-
-  delete: (id: string) =>
-    apiCall<void>(`/images/${id}`, 'DELETE'),
-
-  upload: (image: string, options?: { caption?: string; tag?: string; filename?: string; mimeType?: string }) =>
-    apiCall<{ id: string; url: string; caption?: string; tag?: string; created_at: string }>('/images/upload', 'POST', { image, ...options }),
-
-  deleteUploaded: (id: string) =>
-    apiCall<void>(`/images/uploaded/${id}`, 'DELETE'),
-
-  getDashboardImage: () =>
-    apiCall<{ image: DashboardImage | null }>('/images/dashboard'),
-};
-
 // ===== DISCORD =====
 export interface DiscordStatus {
   connected: boolean;
@@ -717,7 +665,6 @@ export const api = {
   context,
   health,
   voice,
-  images,
   discord,
   chat,
   library,

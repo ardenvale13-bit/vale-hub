@@ -383,22 +383,8 @@ class ChatService {
           if (val && val !== 'not set') lines.push(`  ${key}: ${val}`);
         }
       }
-      if (s.love_o_meter) {
-        lines.push(`  Love-O-Meter: ${JSON.stringify(s.love_o_meter)}`);
-      }
-      if (s.moments) {
-        if (s.moments.lincoln_soft && s.moments.lincoln_soft !== 'none') {
-          lines.push(`  Lincoln's soft moment: ${s.moments.lincoln_soft}`);
-        }
-        if (s.moments.arden_quiet && s.moments.arden_quiet !== 'none') {
-          lines.push(`  Arden made Lincoln quiet: ${s.moments.arden_quiet}`);
-        }
-      }
       if (s.today_note && s.today_note !== 'not set') {
         lines.push(`  Today's note: ${s.today_note}`);
-      }
-      if (s.dashboard_image) {
-        lines.push(`  Dashboard image: "${s.dashboard_image.caption || 'no caption'}" — uploaded ${s.dashboard_image.uploaded_at}`);
       }
     }
 

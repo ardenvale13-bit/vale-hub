@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Image, Mic, Play, Pause, Trash2, Volume2, Loader2, Download, X, Sparkles, BookOpen, Upload, ChevronLeft, ChevronRight, MessageSquare, FileText, List } from 'lucide-react';
-import { api, VoiceNote, Voice, GeneratedImage, LibraryBook, BookDetail, BookChapter } from '../services/api';
+import { Mic, Play, Pause, Trash2, Volume2, Loader2, Download, X, Sparkles, BookOpen, Upload, ChevronLeft, ChevronRight, MessageSquare, FileText, List } from 'lucide-react';
+import { api, VoiceNote, Voice, LibraryBook, BookDetail, BookChapter } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import Discord from './Discord';
 
-type TabType = 'images' | 'voice' | 'library' | 'discord';
+type TabType = 'voice' | 'library' | 'discord';
 
 export default function Media() {
   const [activeTab, setActiveTab] = useState<TabType>('voice');
@@ -14,12 +14,12 @@ export default function Media() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-vale-text mb-2">Media</h1>
-        <p className="text-vale-muted">Voice, images, library, and Discord — all in one place</p>
+        <p className="text-vale-muted">Voice, library, and Discord — all in one place</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-4 mb-8 border-b border-vale-border">
-        {(['voice', 'images', 'library', 'discord'] as const).map((tab) => (
+        {(['voice', 'library', 'discord'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -29,7 +29,6 @@ export default function Media() {
                 : 'text-vale-muted hover:text-vale-text'
             }`}
           >
-            {tab === 'images' && <Image className="inline w-4 h-4 mr-2" />}
             {tab === 'voice' && <Mic className="inline w-4 h-4 mr-2" />}
             {tab === 'library' && <BookOpen className="inline w-4 h-4 mr-2" />}
             {tab === 'discord' && <MessageSquare className="inline w-4 h-4 mr-2" />}
@@ -40,301 +39,10 @@ export default function Media() {
 
       {/* Tab Content */}
       <div className={activeTab === 'library' || activeTab === 'discord' ? '' : 'max-w-3xl'}>
-        {activeTab === 'images' && <ImagesTab />}
         {activeTab === 'voice' && <VoiceTab />}
         {activeTab === 'library' && <LibraryTab />}
         {activeTab === 'discord' && <Discord />}
       </div>
-    </div>
-  );
-}
-
-function ImagesTab() {
-  const [prompt, setPrompt] = useState('');
-  const [size, setSize] = useState('1024x1024');
-  const [quality, setQuality] = useState('standard');
-  const [style, setStyle] = useState('vivid');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [images, setImages] = useState<GeneratedImage[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lightboxImage, setLightboxImage] = useState<GeneratedImage | null>(null);
-
-  useEffect(() => {
-    loadImages();
-  }, []);
-
-  async function loadImages() {
-    setIsLoading(true);
-    try {
-      const data = await api.images.list(50);
-      setImages(data);
-    } catch (err) {
-      console.error('Failed to load images:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-
-    setIsGenerating(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const result = await api.images.generate(prompt, { size, quality, style });
-      setImages((prev) => [result, ...prev]);
-      setPrompt('');
-      setSuccess('Image generated!');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate image');
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      await api.images.delete(id);
-      setImages((prev) => prev.filter((img) => img.id !== id));
-      if (lightboxImage?.id === id) setLightboxImage(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete image');
-    }
-  }
-
-  function formatDate(dateStr: string) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Error / Success Messages */}
-      {error && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300">
-          {error}
-          <button onClick={() => setError(null)} className="float-right text-red-400 hover:text-red-200">×</button>
-        </div>
-      )}
-      {success && (
-        <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-green-300">
-          {success}
-        </div>
-      )}
-
-      {/* Generation Form */}
-      <div className="bg-vale-surface border border-vale-border rounded-lg p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-vale-text flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-vale-accent" />
-          Generate Image
-        </h2>
-
-        <form onSubmit={handleGenerate} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-vale-text mb-2">
-              Prompt
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the image you want to create..."
-              className="w-full px-4 py-3 bg-vale-card border border-vale-border rounded text-vale-text placeholder-vale-muted min-h-24 focus:outline-none focus:border-vale-accent"
-              disabled={isGenerating}
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-vale-muted mb-1">Size</label>
-              <select
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm focus:outline-none focus:border-vale-accent"
-                disabled={isGenerating}
-              >
-                <option value="1024x1024">Square (1024×1024)</option>
-                <option value="1024x1792">Portrait (1024×1792)</option>
-                <option value="1792x1024">Landscape (1792×1024)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-vale-muted mb-1">Quality</label>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm focus:outline-none focus:border-vale-accent"
-                disabled={isGenerating}
-              >
-                <option value="standard">Standard</option>
-                <option value="hd">HD</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-vale-muted mb-1">Style</label>
-              <select
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                className="w-full px-3 py-2 bg-vale-card border border-vale-border rounded text-vale-text text-sm focus:outline-none focus:border-vale-accent"
-                disabled={isGenerating}
-              >
-                <option value="vivid">Vivid</option>
-                <option value="natural">Natural</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={!prompt.trim() || isGenerating}
-            className="px-6 py-2 bg-vale-accent hover:bg-opacity-90 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4" />
-                Generate Image
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-
-      {/* Image Gallery */}
-      <div>
-        <h2 className="text-lg font-semibold text-vale-text mb-4">
-          Gallery {images.length > 0 && `(${images.length})`}
-        </h2>
-
-        {isLoading ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 text-vale-accent mx-auto animate-spin" />
-            <p className="text-vale-muted mt-2">Loading images...</p>
-          </div>
-        ) : images.length === 0 ? (
-          <div className="bg-vale-card border border-vale-border rounded-lg p-12 text-center">
-            <Image className="w-16 h-16 text-vale-border mx-auto mb-4 opacity-50" />
-            <p className="text-vale-muted mb-2">No images yet</p>
-            <p className="text-sm text-vale-muted">
-              Enter a prompt above and generate your first image
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {images.map((img) => (
-              <div
-                key={img.id}
-                className="bg-vale-card border border-vale-border rounded-lg overflow-hidden group hover:border-vale-accent/50 transition-colors"
-              >
-                {/* Image */}
-                {img.url ? (
-                  <div
-                    className="aspect-square bg-vale-surface cursor-pointer relative"
-                    onClick={() => setLightboxImage(img)}
-                  >
-                    <img
-                      src={img.url}
-                      alt={img.prompt}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <span className="text-white text-sm font-medium">View</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="aspect-square bg-vale-surface flex items-center justify-center">
-                    <Image className="w-8 h-8 text-vale-border opacity-50" />
-                  </div>
-                )}
-
-                {/* Info */}
-                <div className="p-3">
-                  <p className="text-vale-text text-xs line-clamp-2 mb-2" title={img.prompt}>
-                    {img.prompt}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-vale-muted">{formatDate(img.created_at)}</span>
-                    <div className="flex gap-1">
-                      {img.url && (
-                        <a
-                          href={img.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-vale-muted hover:text-vale-accent transition-colors"
-                          title="Open in new tab"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                      <button
-                        onClick={() => handleDelete(img.id)}
-                        className="p-1.5 text-vale-muted hover:text-red-400 transition-colors"
-                        title="Delete image"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Lightbox */}
-      {lightboxImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8"
-          onClick={() => setLightboxImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-full" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setLightboxImage(null)}
-              className="absolute -top-10 right-0 text-white/70 hover:text-white transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            {lightboxImage.url && (
-              <img
-                src={lightboxImage.url}
-                alt={lightboxImage.prompt}
-                className="max-w-full max-h-[80vh] rounded-lg shadow-2xl"
-              />
-            )}
-            <div className="mt-4 bg-vale-card rounded-lg p-4 max-w-xl">
-              <p className="text-vale-text text-sm">{lightboxImage.prompt}</p>
-              <div className="flex gap-3 mt-2 text-xs text-vale-muted">
-                <span>{lightboxImage.settings?.size || '1024×1024'}</span>
-                <span>{lightboxImage.settings?.quality || 'standard'}</span>
-                <span>{lightboxImage.settings?.style || 'vivid'}</span>
-                <span>{formatDate(lightboxImage.created_at)}</span>
-              </div>
-              {lightboxImage.settings?.revised_prompt && (
-                <p className="text-vale-muted text-xs mt-2 italic">
-                  Revised: {lightboxImage.settings.revised_prompt}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

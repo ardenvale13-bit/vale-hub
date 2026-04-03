@@ -4,7 +4,6 @@ import { emotionalService } from '../services/emotional.service.js';
 import { voiceService } from '../services/voice.service.js';
 import { discordService } from '../services/discord.service.js';
 import { orientationService } from '../services/orientation.service.js';
-import { imageService } from '../services/image.service.js';
 import { healthService } from '../services/health.service.js';
 import { libraryService } from '../services/library.service.js';
 import { getSupabaseClient } from '../config/supabase.js';
@@ -327,21 +326,6 @@ export async function handleToolCall(
       }
 
       // ===== LINCOLN DASHBOARD TOOLS =====
-      case 'lincoln_set_love': {
-        const { value } = toolInput;
-        const clamped = Math.min(10, Math.max(0, Math.round(value * 10) / 10));
-        const { data, error } = await supabase
-          .from('statuses')
-          .upsert(
-            { user_id: userId, category: 'love', key: 'meter', value: clamped.toString(), updated_at: new Date().toISOString() },
-            { onConflict: 'user_id,category,key' },
-          )
-          .select('*')
-          .single();
-        if (error) throw error;
-        return { success: true, love_value: clamped, message: `Love-O-Meter set to ${clamped}/10 (0=Lincoln's side, 10=Arden's side)` };
-      }
-
       case 'lincoln_log_emotion': {
         const { emotion, pillar, context, intensity } = toolInput;
         const result = await emotionalService.logEmotion(userId, emotion, intensity || 3, context || `Lincoln feels ${emotion}`);
@@ -350,20 +334,6 @@ export async function handleToolCall(
           await supabase.from('emotional_observations').update({ pillar }).eq('id', result.id);
         }
         return { success: true, emotion, pillar: pillar || 'none', message: `Logged: Lincoln feels ${emotion}` };
-      }
-
-      case 'lincoln_soft_moment': {
-        const { text } = toolInput;
-        const { data, error } = await supabase
-          .from('statuses')
-          .upsert(
-            { user_id: userId, category: 'moment', key: 'lincoln_soft', value: text, updated_at: new Date().toISOString() },
-            { onConflict: 'user_id,category,key' },
-          )
-          .select('*')
-          .single();
-        if (error) throw error;
-        return { success: true, moment: text, message: `Soft moment recorded: "${text}"` };
       }
 
       case 'lincoln_note_between_stars': {
@@ -438,14 +408,7 @@ export async function handleToolCall(
           historyByKey[k].push({ value: h.value, recorded_at: h.recorded_at });
         }
 
-        // Dashboard image
-        const dashboardImage = await imageService.getDashboardImage(userId);
-
         return {
-          love_o_meter: {
-            value: parseFloat(statusMap.love?.meter || '5'),
-            description: '0 = Lincoln\'s side, 5 = center, 10 = Arden\'s side',
-          },
           arden_status: {
             spoons: statusMap.body?.spoons || 'not set',
             body_battery: statusMap.body?.battery || 'not set',
@@ -456,16 +419,6 @@ export async function handleToolCall(
             today_note: statusMap.mood?.note || 'not set',
           },
           status_history_24h: historyByKey,
-          moments: {
-            lincoln_soft: statusMap.moment?.lincoln_soft || 'none',
-            arden_quiet: statusMap.moment?.arden_quiet || 'none',
-          },
-          dashboard_image: dashboardImage ? {
-            url: dashboardImage.url,
-            caption: dashboardImage.caption || 'no caption',
-            uploaded_at: dashboardImage.created_at,
-            _image_url: dashboardImage.url, // Signal to fetch and embed as viewable image
-          } : null,
           recent_emotions: recentEmotions,
           notes_between_stars: (notes || []).map((n: any) => ({
             from: n.author_perspective || n.entry_type,
@@ -473,23 +426,6 @@ export async function handleToolCall(
             date: n.created_at,
           })),
         };
-      }
-
-      // ===== IMAGE GENERATION =====
-      case 'generate_image': {
-        const { prompt, size, quality, style } = toolInput;
-        return await imageService.generateImage(userId, prompt, { size, quality, style });
-      }
-
-      case 'list_images': {
-        const { limit } = toolInput;
-        return await imageService.listImages(userId, limit || 20);
-      }
-
-      case 'delete_image': {
-        const { image_id } = toolInput;
-        await imageService.deleteImage(userId, image_id);
-        return { success: true, message: `Image ${image_id} deleted` };
       }
 
       // ===== ORIENTATION =====

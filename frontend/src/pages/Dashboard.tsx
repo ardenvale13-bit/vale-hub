@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, StatusHistory, DashboardImage, SpotifyNowPlaying, DailyQuestion, DeskItem, Reminder, Weather } from '../services/api';
-import { Heart, Star, Send, Loader2, ChevronDown, Clock, ImagePlus, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check, Bell, Coffee, HeartPulse, ListTodo, Gift, Cloud, CloudSun, Sun, CloudRain, CloudSnow, CloudLightning, Wind, Droplets, Sunrise, Sunset } from 'lucide-react';
+import { api, StatusHistory, SpotifyNowPlaying, DailyQuestion, DeskItem, Reminder, Weather } from '../services/api';
+import { Heart, Star, Send, Loader2, ChevronDown, Clock, X, Music2, ExternalLink, SkipBack, SkipForward, Play, Pause, HelpCircle, Archive, Inbox, Check, Bell, Coffee, HeartPulse, ListTodo, Gift, Cloud, CloudSun, Sun, CloudRain, CloudSnow, CloudLightning, Wind, Droplets, Sunrise, Sunset } from 'lucide-react';
 
 // EQ Pillars from Binary Home
 const EQ_PILLARS = [
@@ -17,16 +17,6 @@ interface StatusEntry {
 }
 
 export default function Dashboard() {
-  // Love-O-Meter state — single shared value 0-10 (5 = center)
-  // Lower = Lincoln's side, Higher = Arden's side
-  const [loveMeter, setLoveMeter] = useState(5);
-  const [loveEntry, setLoveEntry] = useState('');
-  const [isSubmittingLove, setIsSubmittingLove] = useState(false);
-
-  // Lincoln & Arden soft/quiet moments
-  const [lincolnSoft, setLincolnSoft] = useState('');
-  const [ardenQuiet, setArdenQuiet] = useState('');
-
   // Emotion inputs
   const [lincolnFeels, setLincolnFeels] = useState('');
   const [ardenFeels, setArdenFeels] = useState('');
@@ -69,12 +59,6 @@ export default function Dashboard() {
   const [isAskingQuestion, setIsAskingQuestion] = useState(false);
   const [recentQuestions, setRecentQuestions] = useState<DailyQuestion[]>([]);
   const [showQuestionArchive, setShowQuestionArchive] = useState(false);
-
-  // Dashboard image
-  const [dashboardImage, setDashboardImage] = useState<DashboardImage | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [imageCaption, setImageCaption] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Lincoln's Desk notifications
   const [deskItems, setDeskItems] = useState<DeskItem[]>([]);
@@ -138,12 +122,11 @@ export default function Dashboard() {
     setIsLoading(true);
     try {
       // Fire all requests in parallel
-      const [statuses, emotions, journals, history, dashImg, questionData, questionList] = await Promise.all([
+      const [statuses, emotions, journals, history, questionData, questionList] = await Promise.all([
         api.status.get().catch(() => [] as StatusEntry[]),
         api.emotions.list().catch(() => []),
         api.journal.list({ category: 'stars' }).catch(() => []),
         api.status.history(24).catch(() => [] as StatusHistory[]),
-        api.images.getDashboardImage().catch(() => ({ image: null })),
         api.questions.current().catch(() => null),
         api.questions.list(5).catch(() => ({ questions: [], total: 0 })),
       ]);
@@ -152,22 +135,15 @@ export default function Dashboard() {
       setRecentQuestions(((questionList as any)?.questions || []).filter((q: any) => q.answer));
 
       setStatusHistory(history as StatusHistory[]);
-      if ((dashImg as any)?.image) {
-        setDashboardImage((dashImg as any).image);
-        setImageCaption((dashImg as any).image.caption || '');
-      }
 
       // Process statuses
       for (const s of (statuses as StatusEntry[]) || []) {
-        if (s.category === 'love' && s.key === 'meter') setLoveMeter(parseFloat(s.value) || 5);
         if (s.category === 'body' && s.key === 'spoons') setSpoons(s.value);
         if (s.category === 'body' && s.key === 'battery') setBodyBattery(s.value);
         if (s.category === 'body' && s.key === 'pain') setPain(s.value);
         if (s.category === 'body' && s.key === 'heart_rate') setHeartRate(s.value);
         if (s.category === 'mood' && s.key === 'current') setStatusText(s.value);
         if (s.category === 'mood' && s.key === 'note') setTodayNote(s.value);
-        if (s.category === 'moment' && s.key === 'lincoln_soft') setLincolnSoft(s.value);
-        if (s.category === 'moment' && s.key === 'arden_quiet') setArdenQuiet(s.value);
       }
 
       // Process emotions
@@ -200,47 +176,6 @@ export default function Dashboard() {
       await api.status.set({ category, key, value });
     } catch (err) {
       console.error('Failed to save status:', err);
-    }
-  }
-
-  async function handleLoveMeterChange(val: number) {
-    const clamped = Math.min(10, Math.max(0, Math.round(val * 10) / 10));
-    setLoveMeter(clamped);
-    await saveStatus('love', 'meter', clamped.toString());
-  }
-
-  async function handleLoveEntry(e: React.FormEvent) {
-    e.preventDefault();
-    if (!loveEntry.trim()) return;
-    setIsSubmittingLove(true);
-    try {
-      const text = loveEntry.trim();
-      const lower = text.toLowerCase();
-      // Determine direction: if entry starts with a name, shift that direction
-      let shift = 0;
-      if (lower.startsWith('arden')) {
-        shift = 0.5; // shift toward Arden (higher)
-      } else if (lower.startsWith('lincoln') || lower.startsWith('linc')) {
-        shift = -0.5; // shift toward Lincoln (lower)
-      }
-
-      const newVal = Math.min(10, Math.max(0, Math.round((loveMeter + shift) * 10) / 10));
-      setLoveMeter(newVal);
-      await saveStatus('love', 'meter', newVal.toString());
-
-      // Log it as an emotion too
-      await api.emotions.create({
-        emotion: text,
-        intensity: 3,
-        context: 'love-o-meter entry',
-        pillar: 'relationship',
-      });
-
-      setLoveEntry('');
-    } catch (err) {
-      console.error('Failed to save love entry:', err);
-    } finally {
-      setIsSubmittingLove(false);
     }
   }
 
@@ -299,65 +234,6 @@ export default function Dashboard() {
       if (who === 'Lincoln') setLincolnFeels('');
       else setArdenFeels('');
     } catch {}
-  }
-
-  async function handleSoftMoment(who: string, text: string) {
-    if (!text.trim()) return;
-    const key = who === 'Lincoln' ? 'lincoln_soft' : 'arden_quiet';
-    await saveStatus('moment', key, text);
-  }
-
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type and size
-    if (!file.type.startsWith('image/')) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be under 5MB');
-      return;
-    }
-
-    setIsUploadingImage(true);
-    try {
-      // Convert to base64
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const result = await api.images.upload(base64, {
-        caption: imageCaption || undefined,
-        tag: 'dashboard',
-        filename: `dashboard_${Date.now()}.${file.type.split('/')[1] || 'png'}`,
-        mimeType: file.type,
-      });
-
-      setDashboardImage({
-        id: result.id,
-        url: result.url,
-        caption: result.caption,
-        uploaded_at: result.created_at,
-      });
-    } catch (err) {
-      console.error('Failed to upload image:', err);
-    } finally {
-      setIsUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }
-
-  async function handleRemoveDashboardImage() {
-    if (!dashboardImage?.id) return;
-    try {
-      await api.images.deleteUploaded(dashboardImage.id);
-      setDashboardImage(null);
-      setImageCaption('');
-    } catch (err) {
-      console.error('Failed to remove image:', err);
-    }
   }
 
   async function handleAnswerQuestion(e: React.FormEvent) {
@@ -568,125 +444,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Center: Love-O-Meter */}
+        {/* Center: Emotion Inputs */}
         <div className="lg:col-span-8 space-y-4">
-          {/* Love-O-Meter */}
+          {/* Quick Emotion Inputs */}
           <div className="bg-vale-card border border-vale-border rounded-lg p-4 sm:p-6">
-            <div className="text-center mb-4">
-              <div className="flex items-center justify-center gap-2">
-                <Heart className="w-5 h-5 text-vale-arden" />
-                <h2 className="text-lg sm:text-xl font-bold text-vale-text">Love-O-Meter</h2>
-              </div>
-              <p className="text-xs text-vale-muted">A log of our tenderness</p>
-            </div>
-
-            {/* The Shared Meter */}
-            <div className="relative mb-6">
-              {/* Names and indicator */}
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-sm font-bold transition-colors ${loveMeter < 5 ? 'text-vale-lincoln' : 'text-vale-lincoln/50'}`}>
-                  Lincoln
-                </span>
-                <div className="flex flex-col items-center">
-                  <Heart className={`w-5 h-5 transition-colors ${loveMeter === 5 ? 'text-vale-accent fill-vale-accent' : loveMeter < 5 ? 'text-vale-lincoln fill-vale-lincoln' : 'text-vale-arden fill-vale-arden'}`} />
-                  <span className="text-xs text-vale-muted mt-0.5">{loveMeter === 5 ? '0' : loveMeter < 5 ? `L+${(5 - loveMeter).toFixed(1).replace(/\.0$/, '')}` : `A+${(loveMeter - 5).toFixed(1).replace(/\.0$/, '')}`}</span>
-                </div>
-                <span className={`text-sm font-bold transition-colors ${loveMeter > 5 ? 'text-vale-arden' : 'text-vale-arden/50'}`}>
-                  Arden
-                </span>
-              </div>
-
-              {/* Single gradient bar */}
-              <div
-                className="relative h-6 rounded-full overflow-hidden cursor-pointer"
-                style={{
-                  background: 'linear-gradient(to right, #711ea6, #e5b2e6 50%, #34bed6)',
-                }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - rect.left;
-                  const val = Math.round((x / rect.width) * 10);
-                  handleLoveMeterChange(val);
-                }}
-              >
-                {/* Center line */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20" />
-                {/* Indicator */}
-                <div
-                  className="absolute top-0 bottom-0 w-2 rounded shadow-lg transition-all duration-500 ease-out border-2 border-white/80"
-                  style={{
-                    left: `calc(${(loveMeter / 10) * 100}% - 4px)`,
-                    background: loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6',
-                    boxShadow: `0 0 8px ${loveMeter < 5 ? '#711ea6' : loveMeter > 5 ? '#34bed6' : '#e5b2e6'}`,
-                  }}
-                />
-              </div>
-
-              {/* Range slider (for fine control) */}
-              <input
-                type="range" min="0" max="10" step="0.5" value={loveMeter}
-                onChange={(e) => handleLoveMeterChange(parseFloat(e.target.value))}
-                className="w-full accent-vale-accent h-1 bg-vale-border rounded appearance-none cursor-pointer mt-2 opacity-40 hover:opacity-80 transition-opacity"
-              />
-              <div className="flex justify-between text-[9px] text-vale-muted mt-0.5 px-0.5">
-                <span>-5</span>
-                <span>0</span>
-                <span>+5</span>
-              </div>
-
-              {/* Entry input — type a name to shift */}
-              <form onSubmit={handleLoveEntry} className="mt-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={loveEntry}
-                    onChange={(e) => setLoveEntry(e.target.value)}
-                    placeholder="Arden held my hand... / Lincoln left a note..."
-                    className="flex-1 px-3 py-2 bg-vale-surface border border-vale-border rounded text-sm text-vale-text placeholder-vale-muted"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!loveEntry.trim() || isSubmittingLove}
-                    className="px-4 py-2 bg-vale-accent/20 text-vale-accent rounded text-sm font-medium hover:bg-vale-accent/30 disabled:opacity-50 transition-colors"
-                  >
-                    {isSubmittingLove ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-[10px] text-vale-muted mt-1.5">
-                  Start with "Arden" or "Lincoln" to shift the meter their direction
-                </p>
-              </form>
-            </div>
-
-            {/* Soft / Quiet Moments */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-4">
-              <div>
-                <label className="text-[10px] text-vale-lincoln uppercase block mb-1">Lincoln did something soft</label>
-                <input
-                  type="text"
-                  value={lincolnSoft}
-                  onChange={(e) => setLincolnSoft(e.target.value)}
-                  onBlur={() => { if (lincolnSoft.trim()) handleSoftMoment('Lincoln', lincolnSoft); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && lincolnSoft.trim()) { handleSoftMoment('Lincoln', lincolnSoft); (e.target as HTMLInputElement).blur(); } }}
-                  placeholder="What tender thing did Lincoln do?"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-lincoln/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-vale-arden uppercase block mb-1">Arden made Lincoln quiet</label>
-                <input
-                  type="text"
-                  value={ardenQuiet}
-                  onChange={(e) => setArdenQuiet(e.target.value)}
-                  onBlur={() => { if (ardenQuiet.trim()) handleSoftMoment('Arden', ardenQuiet); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && ardenQuiet.trim()) { handleSoftMoment('Arden', ardenQuiet); (e.target as HTMLInputElement).blur(); } }}
-                  placeholder="What stilled him?"
-                  className="w-full px-3 py-2 bg-vale-surface border border-vale-arden/30 rounded text-sm text-vale-text placeholder-vale-muted"
-                />
-              </div>
-            </div>
-
-            {/* Dual Emotion Inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <input
                 type="text"
@@ -933,68 +694,6 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="text-xs text-vale-muted">No observations yet</p>
-              )}
-            </div>
-
-            {/* Dashboard Image */}
-            <div className="bg-vale-card border border-vale-border rounded p-3">
-              <p className="text-xs text-vale-muted uppercase mb-2">Dashboard Image</p>
-              {dashboardImage?.url ? (
-                <div className="relative group">
-                  <img
-                    src={dashboardImage.url}
-                    alt={dashboardImage.caption || 'Dashboard image'}
-                    className="w-full rounded border border-vale-border object-cover max-h-48"
-                  />
-                  <button
-                    onClick={handleRemoveDashboardImage}
-                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove image"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                  {dashboardImage.caption && (
-                    <p className="text-[10px] text-vale-muted mt-1 italic">{dashboardImage.caption}</p>
-                  )}
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center py-4 border border-dashed border-vale-border rounded cursor-pointer hover:border-vale-accent/50 transition-colors"
-                >
-                  {isUploadingImage ? (
-                    <Loader2 className="w-5 h-5 text-vale-accent animate-spin" />
-                  ) : (
-                    <>
-                      <ImagePlus className="w-5 h-5 text-vale-muted mb-1" />
-                      <p className="text-[10px] text-vale-muted">Tap to upload</p>
-                    </>
-                  )}
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              {!dashboardImage?.url && (
-                <input
-                  type="text"
-                  value={imageCaption}
-                  onChange={(e) => setImageCaption(e.target.value)}
-                  placeholder="Caption (optional)"
-                  className="w-full mt-2 px-2 py-1 bg-vale-surface border border-vale-border rounded text-[10px] text-vale-text placeholder-vale-muted"
-                />
-              )}
-              {dashboardImage?.url && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full mt-2 py-1 text-[10px] text-vale-accent hover:text-vale-accent/80 transition-colors"
-                >
-                  {isUploadingImage ? 'Uploading...' : 'Replace image'}
-                </button>
               )}
             </div>
 
